@@ -1,0 +1,51 @@
+# ============ 环境变量 ============
+.env
+.env.local
+.env.*.local
+
+# ============ 依赖包 ============
+node_modules/
+.pnpm-store/
+.npm
+
+# ============ 日志 ============
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+*.log
+
+# ============ 操作系统 ============
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ============ 编辑器 ============
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*.swn
+*~
+
+# ============ 临时文件 ============
+*.tmp
+*.temp
+.cache/
+.temp/
+tmp/
+temp/
+
+# ============ 素材（可选：如果不想提交图片和音乐请取消注释）========
+# public/assets/images/*
+# public/assets/audio/*
+# 保留 .gitkeep
+# !public/assets/images/.gitkeep
+# !public/assets/audio/.gitkeep
+
+# ============ EPUB 源文件（可选）============
+# *.epub

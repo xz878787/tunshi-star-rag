@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>吞噬星空 RAG 助手小志</title>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      min-height: 100vh;
+      color: #fff;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .header {
+      text-align: center;
+      padding: 30px 0 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      margin-bottom: 20px;
+    }
+    .header h1 {
+      font-size: 28px;
+      background: linear-gradient(135deg, #f5af19, #f12711);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 8px;
+    }
+    .header p {
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 14px;
+    }
+    .chat-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px 0;
+      margin-bottom: 20px;
+    }
+    .message {
+      margin-bottom: 20px;
+      animation: fadeIn 0.3s ease;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .message.user {
+      display: flex;
+      justify-content: flex-end;
+    }
+    .message.user .bubble {
+      background: rgba(245, 175, 25, 0.2);
+      border: 1px solid rgba(245, 175, 25, 0.3);
+      border-radius: 16px 16px 4px 16px;
+      max-width: 75%;
+      padding: 12px 16px;
+      color: #f5af19;
+    }
+    .message.assistant .bubble {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px 16px 16px 4px;
+      max-width: 85%;
+      padding: 16px 20px;
+      line-height: 1.8;
+      word-break: break-word;
+    }
+    .message.assistant .bubble p { margin-bottom: 8px; }
+    .message.assistant .bubble ul, .message.assistant .bubble ol { padding-left: 20px; margin-bottom: 8px; }
+    .message.assistant .bubble li { margin-bottom: 4px; }
+    .message.assistant .bubble strong { color: #f5af19; }
+    .message.assistant .bubble code {
+      background: rgba(255,255,255,0.1);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+    .message.assistant .bubble pre {
+      background: rgba(0,0,0,0.3);
+      padding: 12px;
+      border-radius: 8px;
+      overflow-x: auto;
+      margin: 8px 0;
+    }
+    .message.assistant .bubble h1, .message.assistant .bubble h2, .message.assistant .bubble h3 {
+      color: #f5af19;
+      margin: 12px 0 8px;
+    }
+    .sources {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .sources details summary {
+      cursor: pointer;
+      color: rgba(245, 175, 25, 0.7);
+      font-size: 13px;
+      font-weight: 500;
+      user-select: none;
+      padding: 4px 0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .sources details summary::before {
+      content: '▶';
+      display: inline-block;
+      font-size: 10px;
+      transition: transform 0.2s;
+    }
+    .sources details[open] summary::before {
+      transform: rotate(90deg);
+    }
+    .sources details summary:hover {
+      color: rgba(245, 175, 25, 0.9);
+    }
+    .source-item {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.5);
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .input-area {
+      position: sticky;
+      bottom: 0;
+      background: rgba(26, 26, 46, 0.95);
+      backdrop-filter: blur(10px);
+      padding: 16px 0;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .input-wrapper {
+      display: flex;
+      gap: 10px;
+    }
+    .input-wrapper input {
+      flex: 1;
+      padding: 12px 16px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      background: rgba(255, 255, 255, 0.05);
+      color: #fff;
+      font-size: 15px;
+      outline: none;
+      transition: border-color 0.3s;
+    }
+    .input-wrapper input:focus {
+      border-color: rgba(245, 175, 25, 0.5);
+    }
+    .input-wrapper input::placeholder {
+      color: rgba(255, 255, 255, 0.3);
+    }
+    .input-wrapper button {
+      padding: 12px 24px;
+      border-radius: 12px;
+      border: none;
+      background: linear-gradient(135deg, #f5af19, #f12711);
+      color: #fff;
+      font-size: 15px;
+      cursor: pointer;
+      transition: opacity 0.3s;
+      white-space: nowrap;
+    }
+    .input-wrapper button:hover {
+      opacity: 0.9;
+    }
+    .input-wrapper button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .typing {
+      display: flex;
+      gap: 4px;
+      padding: 12px 16px;
+    }
+    .typing span {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.4);
+      animation: bounce 1.4s infinite;
+    }
+    .typing span:nth-child(2) { animation-delay: 0.2s; }
+    .typing span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes bounce {
+      0%, 60%, 100% { transform: translateY(0); }
+      30% { transform: translateY(-8px); }
+    }
+    .hint {
+      text-align: center;
+      color: rgba(255, 255, 255, 0.2);
+      font-size: 12px;
+      margin-top: 8px;
+    }
+    /* 音乐按钮 */
+    .music-btn {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: rgba(245, 175, 25, 0.2);
+      border: 1px solid rgba(245, 175, 25, 0.4);
+      color: #f5af19;
+      font-size: 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      transition: all 0.3s;
+    }
+    .music-btn:hover {
+      background: rgba(245, 175, 25, 0.35);
+    }
+    .music-btn.playing {
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(245, 175, 25, 0.6); }
+      50% { box-shadow: 0 0 0 12px rgba(245, 175, 25, 0); }
+    }
+    /* 背景图片轮播 */
+    .bg-slider {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      z-index: -1;
+      overflow: hidden;
+    }
+    .bg-slider::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: linear-gradient(to bottom, rgba(26,26,46,0.88), rgba(15,52,96,0.92));
+    }
+    .bg-slider img {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
+      opacity: 0;
+      transition: opacity 1.5s ease-in-out;
+    }
+    .bg-slider img.active {
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-slider" id="bgSlider"></div>
+  <button class="music-btn" id="musicBtn" title="音乐开关">🔇</button>
+  <audio id="bgm" loop></audio>
+  <div class="container">
+    <div class="header">
+      <h1>吞噬星空 RAG 助手小志</h1>
+      <p>基于 AI 的智能小说问答系统 · 向量检索 + LLM 生成</p>
+    </div>
+
+    <div class="chat-area" id="chatArea">
+      <div class="message assistant">
+        <div class="bubble">
+          你好！我是《吞噬星空》小说助手小志，你可以问我任何关于小说的问题。比如：<br><br>
+          • 遁天梭是谁留给罗峰的宝物？<br>
+          • 虚拟宇宙公司内部有哪些核心派系？<br>
+          • 呼延博留给罗峰的传承包含哪些东西？<br>
+          • 罗峰离开地球前往宇宙前发生了哪些大事？<br>
+        </div>
+      </div>
+    </div>
+
+    <div class="input-area">
+      <div class="input-wrapper">
+        <input
+          type="text"
+          id="questionInput"
+          placeholder="输入你的问题，按 Enter 发送..."
+          autofocus
+        />
+        <button id="sendBtn">发送</button>
+      </div>
+      <div class="hint">按 Enter 发送 · Powered by Milvus + Qwen</div>
+    </div>
+  </div>
+
+  <script>
+    const chatArea = document.getElementById('chatArea')
+    const input = document.getElementById('questionInput')
+    const sendBtn = document.getElementById('sendBtn')
+
+    let loading = false
+
+    function addMessage(role, text, sources) {
+      const div = document.createElement('div')
+      div.className = `message ${role}`
+
+      let bubbleHTML
+      if (role === 'assistant') {
+        bubbleHTML = marked.parse(text)
+      } else {
+        bubbleHTML = text.replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      }
+
+      let html = `<div class="bubble">${bubbleHTML}</div>`
+
+      if (sources && sources.length > 0) {
+        html += '<div class="sources"><details><summary>查看检索来源</summary>'
+        sources.forEach((s, i) => {
+          html += `<div class="source-item">
+<strong>[第${s.chapter}章]</strong> 相似度: ${s.score}
+${s.content}
+</div>`
+        })
+        html += '</details></div>'
+      }
+
+      div.innerHTML = html
+      return div
+    }
+
+    function addTyping() {
+      const div = document.createElement('div')
+      div.className = 'message assistant typing-indicator'
+      div.innerHTML = '<div class="bubble typing"><span></span><span></span><span></span></div>'
+      chatArea.appendChild(div)
+      chatArea.scrollTop = chatArea.scrollHeight
+    }
+
+    function removeTyping() {
+      const indicator = document.querySelector('.typing-indicator')
+      if (indicator) indicator.remove()
+    }
+
+    async function sendQuestion() {
+      const question = input.value.trim()
+      if (!question || loading) return
+
+      loading = true
+      input.value = ''
+      sendBtn.disabled = true
+
+      chatArea.appendChild(addMessage('user', question))
+      chatArea.scrollTop = chatArea.scrollHeight
+
+      addTyping()
+
+      try {
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question }),
+        })
+        const data = await res.json()
+
+        removeTyping()
+        chatArea.appendChild(addMessage('assistant', data.answer || data.error, data.sources))
+      } catch (e) {
+        removeTyping()
+        chatArea.appendChild(addMessage('assistant', '网络错误，请检查服务器是否运行。'))
+      }
+
+      chatArea.scrollTop = chatArea.scrollHeight
+      loading = false
+      sendBtn.disabled = false
+      input.focus()
+    }
+
+    sendBtn.addEventListener('click', sendQuestion)
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') sendQuestion()
+    })
+
+    // ===== 背景音乐 =====
+    const bgm = document.getElementById('bgm')
+    const musicBtn = document.getElementById('musicBtn')
+    let musicLoaded = false
+
+    async function loadMusic() {
+      if (musicLoaded) return
+      try {
+        const res = await fetch('/api/audio')
+        const data = await res.json()
+        if (data.success && data.audio.length > 0) {
+          bgm.src = data.audio[0]
+          musicLoaded = true
+          console.log('音乐加载成功:', data.audio[0])
+        }
+      } catch (e) {
+        console.log('获取音乐列表失败:', e)
+      }
+    }
+
+    function toggleMusic() {
+      loadMusic().then(() => {
+        if (bgm.paused) {
+          bgm.volume = 0.5
+          bgm.play().then(() => {
+            musicBtn.textContent = '🔊'
+            musicBtn.classList.add('playing')
+          }).catch(e => console.log('播放失败:', e))
+        } else {
+          bgm.pause()
+          musicBtn.textContent = '🔇'
+          musicBtn.classList.remove('playing')
+        }
+      })
+    }
+
+    musicBtn.addEventListener('click', toggleMusic)
+
+    // 用户任意点击后尝试自动播放（浏览器自动播放限制）
+    let autoPlayed = false
+    document.addEventListener('click', function autoPlay() {
+      if (!autoPlayed) {
+        autoPlayed = true
+        loadMusic().then(() => {
+          if (!bgm.src) return
+          bgm.volume = 0.5
+          bgm.play().then(() => {
+            musicBtn.textContent = '🔊'
+            musicBtn.classList.add('playing')
+          }).catch(() => {})
+        })
+      }
+    }, { once: true })
+
+    // ===== 背景图片轮播 =====
+    async function loadImages() {
+      try {
+        const res = await fetch('/api/images')
+        const data = await res.json()
+        if (data.success && data.images.length > 0) {
+          initSlider(data.images)
+        }
+      } catch (e) {
+        console.log('获取图片列表失败:', e)
+      }
+    }
+
+    function initSlider(images) {
+      const slider = document.getElementById('bgSlider')
+      let currentIndex = 0
+
+      images.forEach((src, i) => {
+        const img = document.createElement('img')
+        img.src = src
+        if (i === 0) img.classList.add('active')
+        slider.appendChild(img)
+      })
+
+      if (images.length > 1) {
+        setInterval(() => {
+          const imgs = slider.querySelectorAll('img')
+          imgs[currentIndex].classList.remove('active')
+          currentIndex = (currentIndex + 1) % imgs.length
+          imgs[currentIndex].classList.add('active')
+        }, 5000)
+      }
+    }
+
+    loadImages()
+  </script>
+</body>
+</html>

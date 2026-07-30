@@ -1,0 +1,35 @@
+# ============ 换行符设置 ============
+# 强制所有文本文件使用 LF 换行符（避免 Windows CRLF 问题）
+* text=auto eol=lf
+
+# ============ 明确指定文本文件 ============
+*.js      text eol=lf
+*.mjs     text eol=lf
+*.cjs     text eol=lf
+*.json    text eol=lf
+*.css     text eol=lf
+*.html    text eol=lf
+*.md      text eol=lf
+*.yml     text eol=lf
+*.yaml    text eol=lf
+*.env*    text eol=lf
+*.git*    text eol=lf
+
+# ============ 明确指定二进制文件（不做 diff 和换行符转换）============
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.webp  binary
+*.bmp   binary
+*.mp3   binary
+*.wav   binary
+*.ogg   binary
+*.flac  binary
+*.m4a   binary
+*.mp4   binary
+*.epub  binary
+*.ico   binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
