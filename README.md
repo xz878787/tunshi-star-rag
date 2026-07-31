@@ -1,5 +1,8 @@
 # 吞噬星空 RAG 智能问答助手
 
+
+<img width="2542" height="1326" alt="e943b6fd453a62877c5a037a8a76fa2d" src="https://github.com/user-attachments/assets/b3e36fba-6b38-40fc-9db8-84339b30f8d7" />
+
 > 基于向量检索（Milvus）+ 大语言模型（DashScope / 通义千问）的《吞噬星空》小说智能问答系统。
 > RAG（Retrieval-Augmented Generation）架构，结合小说原文片段进行精准回答。
 
