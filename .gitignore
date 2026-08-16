@@ -40,6 +40,11 @@ $RECYCLE.BIN/
 tmp/
 temp/
 
+# ============ 归档/大文件 ============
+# 超过 GitHub 100MB 限制，不应提交
+*.tar
+public/assets.tar
+
 # ============ 素材（可选：如果不想提交图片和音乐请取消注释）========
 # public/assets/images/*
 # public/assets/audio/*
