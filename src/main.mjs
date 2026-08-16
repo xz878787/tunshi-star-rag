@@ -1,10 +1,10 @@
 import "dotenv/config";
 import { parse } from 'path'; // path 解析路径
 import {
-  MilvusClient,
-  DataType,
-  MetricType,
-  IndexType
+  MilvusClient,//操作入口
+  DataType,//字段类型
+  MetricType,//相似度算法
+  IndexType//向量索引类型
 } from '@zilliz/milvus2-sdk-node'
 import {
   OpenAIEmbeddings
