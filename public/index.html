@@ -18,10 +18,10 @@
       color: #fff;
     }
     .container {
-      max-width: 800px;
-      margin: 0 auto;
-      padding: 20px;
-      min-height: 100vh;
+      width: 100%;       /* 全宽：让聊天区滚动条能贴到窗口最右 */
+      padding: 20px 0;   /* 去掉左右 padding，聊天区/滚动条贴边 */
+      height: 100%;      /* 跟随 app-layout 视口高度，不再随内容变高 */
+      overflow: hidden;  /* 禁止整页滚动，聊天区内部独立滚动 */
       display: flex;
       flex-direction: column;
     }
@@ -47,6 +47,36 @@
       overflow-y: auto;
       padding: 10px 0;
       margin-bottom: 20px;
+    }
+    /* 极细、半透明的滚动条：能看到滚动位置但不抢眼 */
+    .sidebar-list,
+    .chat-area {
+      scrollbar-width: thin;                                /* Firefox：细滚动条 */
+      scrollbar-color: rgba(255, 255, 255, 0.2) transparent; /* Firefox：滑块半透明、轨道透明 */
+    }
+    .sidebar-list::-webkit-scrollbar,
+    .chat-area::-webkit-scrollbar {
+      width: 4px;                  /* 细滚动条 */
+    }
+    .sidebar-list::-webkit-scrollbar-track,
+    .chat-area::-webkit-scrollbar-track {
+      background: transparent;     /* 轨道完全透明 */
+    }
+    .sidebar-list::-webkit-scrollbar-thumb,
+    .chat-area::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.2);  /* 滑块半透明，隐约可见位置 */
+      border-radius: 4px;
+    }
+    .sidebar-list::-webkit-scrollbar-thumb:hover,
+    .chat-area::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.4);  /* 悬停时稍明显 */
+    }
+    /* 右侧内容保持 800px 居中：滚动条贴窗口最右，内容仍居中阅读 */
+    .message,
+    .typing {
+      max-width: 800px;
+      margin-left: auto;
+      margin-right: auto;
     }
     .message {
       margin-bottom: 20px;
@@ -145,6 +175,8 @@
     .input-wrapper {
       display: flex;
       gap: 10px;
+      max-width: 800px;   /* 输入区与消息内容同宽居中 */
+      margin: 0 auto;
     }
     .input-wrapper input {
       flex: 1;
@@ -207,6 +239,9 @@
       color: rgba(255, 255, 255, 0.2);
       font-size: 12px;
       margin-top: 8px;
+      max-width: 800px;   /* 提示文字与输入区同宽居中 */
+      margin-left: auto;
+      margin-right: auto;
     }
     /* 音乐按钮 */
     .music-btn {
@@ -237,6 +272,172 @@
       0%, 100% { box-shadow: 0 0 0 0 rgba(245, 175, 25, 0.6); }
       50% { box-shadow: 0 0 0 12px rgba(245, 175, 25, 0); }
     }
+    /* ===== 登录面板 ===== */
+    .login-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 9998;
+      background: rgba(0, 0, 0, 0.35);
+      backdrop-filter: blur(6px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .login-overlay.active { display: flex; }
+    .login-panel {
+      width: 100%;
+      max-width: 400px;
+      background: rgba(22, 33, 62, 0.85);
+      border: 1px solid rgba(245, 175, 25, 0.3);
+      border-radius: 20px;
+      padding: 36px 32px 32px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(10px);
+      animation: loginIn 0.35s ease;
+    }
+    @keyframes loginIn {
+      from { opacity: 0; transform: translateY(-20px) scale(0.97); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .login-panel h2 {
+      font-size: 24px;
+      text-align: center;
+      margin-bottom: 6px;
+      background: linear-gradient(135deg, #f5af19, #f12711);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .login-panel .sub {
+      text-align: center;
+      color: rgba(255, 255, 255, 0.55);
+      font-size: 13px;
+      margin-bottom: 28px;
+    }
+    .login-field {
+      position: relative;
+      margin-bottom: 18px;
+    }
+    .login-field input {
+      width: 100%;
+      padding: 14px 16px 14px 42px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      background: rgba(255, 255, 255, 0.06);
+      color: #fff;
+      font-size: 14px;
+      outline: none;
+      transition: all 0.25s;
+    }
+    .login-field input:focus {
+      border-color: rgba(245, 175, 25, 0.6);
+      background: rgba(255, 255, 255, 0.1);
+    }
+    .login-field input::placeholder { color: rgba(255, 255, 255, 0.35); }
+    .login-field .icon {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: rgba(245, 175, 25, 0.7);
+      font-size: 16px;
+    }
+    .login-btn {
+      width: 100%;
+      padding: 14px;
+      margin-top: 6px;
+      border-radius: 12px;
+      border: 1px solid rgba(245, 175, 25, 0.5);
+      background: linear-gradient(135deg, rgba(245, 175, 25, 0.4), rgba(241, 39, 17, 0.4));
+      color: #fff;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    .login-btn:hover:not(:disabled) {
+      background: linear-gradient(135deg, rgba(245, 175, 25, 0.55), rgba(241, 39, 17, 0.55));
+      transform: translateY(-1px);
+    }
+    .login-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .login-error {
+      color: #ff6b6b;
+      font-size: 13px;
+      margin-top: 10px;
+      text-align: center;
+      min-height: 18px;
+    }
+    .login-hint {
+      margin-top: 16px;
+      padding: 10px 14px;
+      background: rgba(245, 175, 25, 0.08);
+      border: 1px solid rgba(245, 175, 25, 0.15);
+      border-radius: 10px;
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.55);
+      line-height: 1.7;
+    }
+    .login-hint strong { color: #f5af19; }
+    .login-toggle {
+      text-align: center;
+      margin-top: 14px;
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.55);
+    }
+    .login-toggle a {
+      color: #f5af19;
+      cursor: pointer;
+      text-decoration: none;
+      margin-left: 4px;
+    }
+    .login-toggle a:hover { text-decoration: underline; }
+    .login-field.hidden { display: none; }
+    /* ===== 用户栏（已登录显示） ===== */
+    .user-bar {
+      position: fixed;
+      top: 20px;
+      right: 80px;
+      display: none;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 14px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 24px;
+      backdrop-filter: blur(4px);
+      z-index: 999;
+    }
+    .user-bar.active { display: flex; }
+    .user-bar .avatar {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #f5af19, #f12711);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 700;
+      color: #fff;
+    }
+    .user-bar .name {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.85);
+    }
+    .user-bar .logout {
+      padding: 4px 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      background: transparent;
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .user-bar .logout:hover {
+      color: #ff6b6b;
+      border-color: rgba(255, 107, 107, 0.4);
+      background: rgba(255, 107, 107, 0.08);
+    }
     /* 背景图片轮播 */
     .bg-slider {
       position: fixed;
@@ -250,7 +451,7 @@
       position: absolute;
       top: 0; left: 0;
       width: 100%; height: 100%;
-      background: linear-gradient(to bottom, rgba(26,26,46,0.11), rgba(15,52,96,0.19));
+      background: linear-gradient(to bottom, rgba(26,26,46,0.51), rgba(15,52,96,0.59));
     }
     .bg-slider img {
       position: absolute;
@@ -263,12 +464,192 @@
     .bg-slider img.active {
       opacity: 1;
     }
+
+    /* ===== 历史会话侧边栏 ===== */
+    .app-layout {
+      display: flex;
+      height: 100vh;   /* 锁死视口高度，侧边栏与聊天区各自独立滚动 */
+      height: 100dvh;  /* 移动端兼容：避开地址栏高度变化 */
+      width: 100%;
+      overflow: hidden; /* 禁止整页滚动，滚动交给内部区域 */
+    }
+    .sidebar {
+      width: 260px;
+      flex-shrink: 0;
+      background: rgba(255, 255, 255, 0.02);
+      border-right: 1px solid rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(12px);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transition: width 0.3s ease;
+      position: relative;
+      z-index: 900;
+    }
+    .app-layout.sidebar-collapsed .sidebar {
+      width: 0;
+    }
+    .container {
+      flex: 1;
+      min-width: 0;
+    }
+    .sidebar-toggle {
+      position: fixed;
+      left: 12px;
+      top: 12px;
+      z-index: 1000;
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #fff;
+      font-size: 15px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+    }
+    .sidebar-toggle:hover {
+      background: rgba(245, 175, 25, 0.3);
+    }
+    .sidebar-header {
+      padding: 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .sidebar-title {
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.7);
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+    #newChatBtn {
+      width: 100%;
+      padding: 10px;
+      border: 1px dashed rgba(245, 175, 25, 0.4);
+      background: rgba(245, 175, 25, 0.1);
+      color: #f5af19;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background 0.2s;
+      font-family: inherit;
+    }
+    #newChatBtn:hover {
+      background: rgba(245, 175, 25, 0.25);
+    }
+    .sidebar-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+    }
+    .conv-item {
+      padding: 10px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      color: rgba(255, 255, 255, 0.85);
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      margin-bottom: 4px;
+      transition: background 0.2s;
+      border: 1px solid transparent;
+      white-space: nowrap;
+    }
+    .conv-item:hover {
+      background: rgba(255, 255, 255, 0.06);
+    }
+    .conv-item.active {
+      background: rgba(245, 175, 25, 0.15);
+      border-color: rgba(245, 175, 25, 0.3);
+      color: #f5af19;
+    }
+    .conv-item .conv-title {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .conv-item .conv-del {
+      background: none;
+      border: none;
+      color: rgba(255, 255, 255, 0.4);
+      cursor: pointer;
+      font-size: 13px;
+      padding: 0 4px;
+      margin-left: 8px;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .conv-item:hover .conv-del {
+      opacity: 1;
+    }
+    .conv-item .conv-del:hover {
+      color: #f12711;
+    }
+    .sidebar-empty {
+      padding: 24px;
+      text-align: center;
+      color: rgba(255, 255, 255, 0.35);
+      font-size: 13px;
+    }
   </style>
 </head>
 <body>
   <div class="bg-slider" id="bgSlider"></div>
   <button class="music-btn" id="musicBtn" title="音乐开关">🔇</button>
   <audio id="bgm" loop></audio>
+
+  <!-- 侧边栏折叠按钮（始终可见） -->
+  <button class="sidebar-toggle" id="sidebarToggle" title="历史会话">☰</button>
+
+  <!-- ===== 主布局：历史侧边栏 + 聊天主区 ===== -->
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-title">📚 历史会话</div>
+        <button id="newChatBtn">＋ 新对话</button>
+      </div>
+      <div class="sidebar-list" id="convList"></div>
+      <div class="sidebar-empty" id="convEmpty">暂无历史会话</div>
+    </aside>
+
+  <!-- ===== 用户栏（已登录） ===== -->
+  <div class="user-bar" id="userBar">
+    <div class="avatar" id="userAvatar">A</div>
+    <span class="name" id="userName">admin</span>
+    <button class="logout" id="logoutBtn">退出</button>
+  </div>
+
+  <!-- ===== 登录面板 ===== -->
+  <div class="login-overlay" id="loginOverlay">
+    <div class="login-panel">
+      <h2 id="loginTitle">吞噬星空 RAG 助手</h2>
+      <p class="sub" id="loginSub">请登录后使用智能问答</p>
+      <div class="login-field">
+        <span class="icon">👤</span>
+        <input type="text" id="loginUsername" placeholder="用户名" autocomplete="username" />
+      </div>
+      <div class="login-field">
+        <span class="icon">🔒</span>
+        <input type="password" id="loginPassword" placeholder="密码" autocomplete="current-password" />
+      </div>
+      <div class="login-field hidden" id="confirmField">
+        <span class="icon">🔒</span>
+        <input type="password" id="loginConfirm" placeholder="确认密码" autocomplete="new-password" />
+      </div>
+      <button class="login-btn" id="loginBtn">登 录</button>
+      <div class="login-error" id="loginError"></div>
+      <div class="login-hint" id="loginHint">
+        <strong>演示账号：</strong> admin / 123456<br>
+        首次加载请稍候，向量检索可能需要几秒钟。
+      </div>
+      <div class="login-toggle" id="loginToggle">
+        没有账号？<a id="toggleLink">立即注册</a>
+      </div>
+    </div>
+  </div>
+
   <div class="container">
     <div class="header">
       <h1>吞噬星空 RAG 助手小志</h1>
@@ -304,15 +685,247 @@
       <div class="hint">按 Enter 发送 · Powered by Milvus + Qwen</div>
     </div>
   </div>
+  </div><!-- /.app-layout -->
 
   <script>
+    // ============== 认证模块 ==============
+    const loginOverlay = document.getElementById('loginOverlay')
+    const loginBtn = document.getElementById('loginBtn')
+    const loginUsername = document.getElementById('loginUsername')
+    const loginPassword = document.getElementById('loginPassword')
+    const loginError = document.getElementById('loginError')
+    const userBar = document.getElementById('userBar')
+    const userNameEl = document.getElementById('userName')
+    const userAvatarEl = document.getElementById('userAvatar')
+    const logoutBtn = document.getElementById('logoutBtn')
+    const loginTitle = document.getElementById('loginTitle')
+    const loginSub = document.getElementById('loginSub')
+    const confirmField = document.getElementById('confirmField')
+    const loginConfirm = document.getElementById('loginConfirm')
+    const loginHint = document.getElementById('loginHint')
+    const loginToggle = document.getElementById('loginToggle')
+    const toggleLink = document.getElementById('toggleLink')
+    const TOKEN_KEY = 'tsxk_rag_token'
+    const USER_KEY = 'tsxk_rag_user'
+
+    // 登录/注册模式切换
+    let isRegisterMode = false
+
+    // 获取已存的 token
+    function getToken() { return localStorage.getItem(TOKEN_KEY) }
+    // 获取已存的用户信息
+    function getUserInfo() {
+      try { return JSON.parse(localStorage.getItem(USER_KEY) || 'null') } catch { return null }
+    }
+
+    // 显示登录面板（自动切回登录模式）
+    function showLogin(msg) {
+      if (isRegisterMode) toggleMode()
+      loginOverlay.classList.add('active')
+      loginError.textContent = msg || ''
+      userBar.classList.remove('active')
+      setTimeout(() => loginUsername.focus(), 100)
+    }
+    // 隐藏登录面板并显示用户栏
+    function showLoggedIn(userInfo) {
+      loginOverlay.classList.remove('active')
+      userBar.classList.add('active')
+      if (userInfo) {
+        userNameEl.textContent = userInfo.username || '用户'
+        userAvatarEl.textContent = (userInfo.username || 'U').charAt(0).toUpperCase()
+      }
+      // 登录后加载历史会话列表
+      loadConversations()
+    }
+
+    // 登录/注册模式切换
+    function toggleMode() {
+      isRegisterMode = !isRegisterMode
+      loginError.textContent = ''
+      if (isRegisterMode) {
+        loginTitle.textContent = '注册新账号'
+        loginSub.textContent = '注册后即可使用智能问答'
+        loginBtn.textContent = '注 册'
+        confirmField.classList.remove('hidden')
+        loginHint.classList.add('hidden')
+        toggleLink.textContent = '立即登录'
+        loginToggle.firstChild.textContent = '已有账号？'
+      } else {
+        loginTitle.textContent = '吞噬星空 RAG 助手'
+        loginSub.textContent = '请登录后使用智能问答'
+        loginBtn.textContent = '登 录'
+        confirmField.classList.add('hidden')
+        loginHint.classList.remove('hidden')
+        toggleLink.textContent = '立即注册'
+        loginToggle.firstChild.textContent = '没有账号？'
+      }
+      loginPassword.value = ''
+      loginConfirm && (loginConfirm.value = '')
+    }
+
+    // 登录请求
+    async function doLogin() {
+      const username = loginUsername.value.trim()
+      const password = loginPassword.value
+      if (!username || !password) {
+        loginError.textContent = '请输入用户名和密码'
+        return
+      }
+      loginBtn.disabled = true
+      loginError.textContent = ''
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password }),
+        })
+        const data = await res.json()
+        if (data.code === 200 && data.data?.accessToken) {
+          localStorage.setItem(TOKEN_KEY, data.data.accessToken)
+          const userInfo = extractUserInfo(data.data.accessToken)
+          localStorage.setItem(USER_KEY, JSON.stringify(userInfo))
+          showLoggedIn(userInfo)
+          chatArea?.scrollTo && chatArea.scrollTop !== undefined && (chatArea.scrollTop = chatArea.scrollHeight)
+        } else {
+          loginError.textContent = data.msg || '登录失败，请检查账号密码'
+        }
+      } catch (e) {
+        loginError.textContent = '网络错误，请检查服务器是否运行'
+      } finally {
+        loginBtn.disabled = false
+      }
+    }
+
+    // 注册请求
+    async function doRegister() {
+      const username = loginUsername.value.trim()
+      const password = loginPassword.value
+      const confirm = loginConfirm.value
+      if (!username || !password) {
+        loginError.textContent = '请输入用户名和密码'
+        return
+      }
+      if (password.length < 6) {
+        loginError.textContent = '密码长度至少 6 位'
+        return
+      }
+      if (password !== confirm) {
+        loginError.textContent = '两次密码不一致'
+        return
+      }
+      loginBtn.disabled = true
+      loginError.textContent = ''
+      try {
+        const res = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password }),
+        })
+        const data = await res.json()
+        if (data.code === 200) {
+          // 注册成功 → 切回登录模式 + 自动填用户名 + 提示
+          toggleMode()
+          loginUsername.value = username
+          loginPassword.value = ''
+          loginError.style.color = '#4ade80'
+          loginError.textContent = '注册成功，请登录'
+          setTimeout(() => { loginError.style.color = ''; loginError.textContent = '' }, 3000)
+        } else {
+          loginError.textContent = data.msg || '注册失败，请重试'
+        }
+      } catch (e) {
+        loginError.textContent = '网络错误，请检查服务器是否运行'
+      } finally {
+        loginBtn.disabled = false
+      }
+    }
+
+    // 统一入口：按钮点击根据模式分派
+    function handleAuthAction() {
+      if (isRegisterMode) doRegister()
+      else doLogin()
+    }
+
+    // 从 token 的 payload 中提取用户展示信息（不依赖外部库）
+    function extractUserInfo(token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]))
+        const { iat, exp, password, ...rest } = payload
+        return rest
+      } catch { return { username: 'admin' } }
+    }
+
+    // 退出登录
+    function doLogout() {
+
+        // <div class="bubble">
+        //   你好！我是《吞噬星空》小说助手小志，你可以问我任何关于小说的问题。比如：<br><br>
+        //    • 遁天梭是谁赠予罗峰的？<br>
+        //    • 罗峰在虚拟宇宙公司内部有哪些角色？<br>
+        //    • 罗峰什么时候正式离开地球前往了宇宙？<br>
+         
+         
+        //   • 罗峰离开地球前往宇宙前发生了哪些大事？<br>
+          
+         
+        // </div>
+      localStorage.removeItem(TOKEN_KEY)
+      localStorage.removeItem(USER_KEY)
+      loginPassword.value = ''
+      // 清理会话状态，恢复聊天区初始欢迎语（与新对话保持一致）
+      currentConversationId = null
+      if (typeof chatArea !== 'undefined') chatArea.innerHTML = `
+      <div class="message assistant">
+        <div class="bubble">
+          
+          你好！我是《吞噬星空》小说助手小志，你可以问我任何关于小说的问题。比如：<br><br>
+           • 遁天梭是谁赠予罗峰的？<br>
+           • 罗峰在虚拟宇宙公司内部有哪些角色？<br>
+           • 罗峰什么时候正式离开地球前往了宇宙？<br>
+          
+          • 罗峰离开地球前往宇宙前发生了哪些大事？<br>
+        </div>
+      </div>`
+      if (typeof renderConversations === 'function') renderConversations()
+      showLogin('已退出登录，请重新登录')
+    }
+
+    // 页面加载时检查登录状态
+    function checkAuthOnLoad() {
+      const token = getToken()
+      const userInfo = getUserInfo()
+      if (!token) {
+        showLogin()
+        return
+      }
+      // 有 token，先展示用户栏（不阻塞加载），后端校验失败会自动踢回
+      showLoggedIn(userInfo)
+    }
+
+    loginBtn.addEventListener('click', handleAuthAction)
+    loginPassword.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') handleAuthAction()
+    })
+    loginUsername.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') loginPassword.focus()
+    })
+    // 注册模式下 Enter 也提交
+    loginConfirm && loginConfirm.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') handleAuthAction()
+    })
+    // 模式切换链接
+    toggleLink.addEventListener('click', toggleMode)
+    logoutBtn.addEventListener('click', doLogout)
+
+    // ============== 原始聊天逻辑（改造：带 Token + 处理 401） ==============
     const chatArea = document.getElementById('chatArea')
     const input = document.getElementById('questionInput')
     const sendBtn = document.getElementById('sendBtn')
 
     let loading = false
 
-    function addMessage(role, text, sources) {
+    // 构造一条消息 DOM，返回 { div, bubble } 供流式逐步更新正文
+    function createMessage(role, text, sources) {
       const div = document.createElement('div')
       div.className = `message ${role}`
 
@@ -337,7 +950,13 @@ ${s.content}
       }
 
       div.innerHTML = html
-      return div
+      chatArea.appendChild(div)
+      chatArea.scrollTop = chatArea.scrollHeight
+      return { div, bubble: div.querySelector('.bubble') }
+    }
+
+    function addMessage(role, text, sources) {
+      return createMessage(role, text, sources).div
     }
 
     function addTyping() {
@@ -353,35 +972,111 @@ ${s.content}
       if (indicator) indicator.remove()
     }
 
+    // 构造带 Authorization 的请求头
+    function authHeaders() {
+      const h = { 'Content-Type': 'application/json' }
+      const token = getToken()
+      if (token) h.Authorization = 'Bearer ' + token
+      return h
+    }
+
+    // 流式解析后端推送：第一行是 meta（conversationId + sources），之后是正文
+    async function streamAnswer(res) {
+      const reader = res.body?.getReader()
+      if (!reader) return
+      const decoder = new TextDecoder('utf-8') // 关键：把被切断的中文字节拼回完整字符
+      let buffer = ''
+      let metaParsed = false
+      let bubble = null
+      try {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          buffer += decoder.decode(value, { stream: true })
+
+          // 先解析领先导的 meta 行（conversationId + sources）
+          if (!metaParsed) {
+            const nl = buffer.indexOf('\n')
+            if (nl >= 0) {
+              let meta = { conversationId: null, sources: [] }
+              try { meta = JSON.parse(buffer.slice(0, nl)) } catch (e) { /* 保留默认值 */ }
+              buffer = buffer.slice(nl + 1)
+              metaParsed = true
+              // 记录会话 id，供后续追问挂在同一会话
+              if (meta.conversationId) currentConversationId = Number(meta.conversationId)
+              // 用 sources 预先渲染气泡 + 检索来源区（与原来一致）
+              const m = createMessage('assistant', '', meta.sources || [])
+              bubble = m.bubble
+            }
+          }
+
+          if (metaParsed && bubble) {
+            bubble.innerHTML = marked.parse(buffer)
+            chatArea.scrollTop = chatArea.scrollHeight
+          }
+        }
+        // 刷新解码器末尾残留的字节
+        buffer += decoder.decode()
+        if (metaParsed && bubble) bubble.innerHTML = marked.parse(buffer)
+      } catch (e) {
+        // 中断/断网：保留已生成的半截内容，避免整段丢失
+        if (bubble) {
+          buffer += decoder.decode()
+          bubble.innerHTML = marked.parse(buffer || '（响应中断）')
+        }
+      }
+    }
+
     async function sendQuestion() {
       const question = input.value.trim()
       if (!question || loading) return
+      if (!getToken()) {
+        showLogin('请先登录后再使用问答功能')
+        return
+      }
 
       loading = true
       input.value = ''
       sendBtn.disabled = true
 
-      chatArea.appendChild(addMessage('user', question))
-      chatArea.scrollTop = chatArea.scrollHeight
-
+      addMessage('user', question)
       addTyping()
 
       try {
         const res = await fetch('/api/chat', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ question }),
+          headers: authHeaders(),
+          body: JSON.stringify({ question, conversationId: currentConversationId }),
         })
-        const data = await res.json()
+        if (res.status === 401) {
+          // token 失效，踢回登录（统一处理）
+          removeTyping()
+          handleUnauthorized()
+          loading = false
+          sendBtn.disabled = false
+          input.focus()
+          return
+        }
 
+        const contentType = res.headers.get('content-type') || ''
         removeTyping()
-        chatArea.appendChild(addMessage('assistant', data.answer || data.error, data.sources))
+
+        if (contentType.includes('application/json')) {
+          // 兼容后端返回 JSON 的情况（如参数错误、500）
+          const data = await res.json()
+          if (data.conversationId) currentConversationId = data.conversationId
+          addMessage('assistant', data.answer || data.error || '服务异常，请稍后重试', data.sources)
+        } else {
+          // 正常：先解析 meta 行拿 conversationId + sources，再流式渲染正文
+          await streamAnswer(res)
+        }
+        // 刷新侧边栏（可能是新会话）
+        loadConversations()
       } catch (e) {
         removeTyping()
-        chatArea.appendChild(addMessage('assistant', '网络错误，请检查服务器是否运行。'))
+        addMessage('assistant', '网络错误，请检查服务器是否运行。')
       }
 
-      chatArea.scrollTop = chatArea.scrollHeight
       loading = false
       sendBtn.disabled = false
       input.focus()
@@ -391,6 +1086,143 @@ ${s.content}
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') sendQuestion()
     })
+
+    // ============== 历史会话模块 ==============
+    const sidebar = document.getElementById('sidebar')
+    const appLayout = document.querySelector('.app-layout')
+    const sidebarToggle = document.getElementById('sidebarToggle')
+    const convList = document.getElementById('convList')
+    const convEmpty = document.getElementById('convEmpty')
+    const newChatBtn = document.getElementById('newChatBtn')
+    const SIDEBAR_KEY = 'tsxk_rag_sidebar_collapsed'
+
+    // 当前打开的会话 id（null = 新对话）
+    let currentConversationId = null
+    let conversations = []
+
+    // 折叠/展开：完全隐藏 + localStorage 记住状态
+    function initSidebar() {
+      if (localStorage.getItem(SIDEBAR_KEY) === '1') {
+        appLayout.classList.add('sidebar-collapsed')
+        sidebarToggle.textContent = '☰'
+      } else {
+        sidebarToggle.textContent = '✕'
+      }
+    }
+    function toggleSidebar() {
+      const collapsed = appLayout.classList.toggle('sidebar-collapsed')
+      localStorage.setItem(SIDEBAR_KEY, collapsed ? '1' : '0')
+      sidebarToggle.textContent = collapsed ? '☰' : '✕'
+    }
+    sidebarToggle.addEventListener('click', toggleSidebar)
+
+    // 401 统一处理：清登录态 + 弹登录
+    function handleUnauthorized() {
+      localStorage.removeItem(TOKEN_KEY)
+      localStorage.removeItem(USER_KEY)
+      currentConversationId = null
+      chatArea.innerHTML = ''
+      renderConversations()
+      showLogin('登录已过期，请重新登录')
+    }
+
+    // 加载会话列表
+    async function loadConversations() {
+      try {
+        const res = await fetch('/api/conversations', { headers: authHeaders() })
+        if (res.status === 401) { handleUnauthorized(); return }
+        const data = await res.json()
+        conversations = (data.data || []).map(c => ({
+          id: c.id,
+          title: c.title || '新对话',
+          update_time: c.update_time,
+        }))
+        renderConversations()
+      } catch (e) {
+        // 静默失败（比如服务器未启动），不影响主界面
+      }
+    }
+
+    function renderConversations() {
+      convList.innerHTML = ''
+      convEmpty.style.display = conversations.length ? 'none' : 'block'
+      conversations.forEach(c => {
+        const item = document.createElement('div')
+        item.className = 'conv-item' + (c.id === currentConversationId ? ' active' : '')
+        item.innerHTML = `<span class="conv-title"></span><button class="conv-del" title="删除">🗑</button>`
+        item.querySelector('.conv-title').textContent = c.title
+        item.addEventListener('click', (e) => {
+          if (e.target.classList.contains('conv-del')) {
+            e.stopPropagation()
+            deleteConversation(c.id)
+            return
+          }
+          openConversation(c.id)
+        })
+        convList.appendChild(item)
+      })
+    }
+
+    // 打开某次会话（加载完整消息）
+    async function openConversation(id) {
+      try {
+        const res = await fetch(`/api/conversations/${id}`, { headers: authHeaders() })
+        if (res.status === 401) { handleUnauthorized(); return }
+        const data = await res.json()
+        if (data.code !== 200) return
+        currentConversationId = id
+        chatArea.innerHTML = ''
+        ;(data.data.messages || []).forEach(m => {
+          if (m.role === 'user') addMessage('user', m.content)
+          else addMessage('assistant', m.content, m.sources)
+        })
+        renderConversations()
+        chatArea.scrollTop = chatArea.scrollHeight
+      } catch (e) {
+        // 静默失败
+      }
+    }
+
+    // 新对话：清空 + 恢复初始欢迎语（与页面首次加载时的完整内容一致）
+    function newConversation() {
+      currentConversationId = null
+      chatArea.innerHTML = ''
+      renderConversations()
+      const welcomeText = '你好！我是《吞噬星空》小说助手小志，你可以问我任何关于小说的问题。比如：<br><br>'
+        + ' • 遁天梭是谁赠予罗峰的？<br>'
+        + ' • 罗峰在虚拟宇宙公司内部有哪些角色？<br>'
+        + ' • 罗峰什么时候正式离开地球前往了宇宙？<br>'
+        + ' • 罗峰离开地球前往宇宙前发生了哪些大事？<br>'
+      addMessage('assistant', welcomeText)
+      input.focus()
+    }
+    newChatBtn.addEventListener('click', newConversation)
+
+    // 删除会话（含后端联动）
+    async function deleteConversation(id) {
+      if (!confirm('确定删除该会话？')) return
+      try {
+        const res = await fetch(`/api/conversations/${id}`, {
+          method: 'DELETE',
+          headers: authHeaders(),
+        })
+        if (res.status === 401) { handleUnauthorized(); return }
+        const data = await res.json()
+        if (data.code === 200) {
+          if (currentConversationId === id) {
+            currentConversationId = null
+            chatArea.innerHTML = ''
+            addMessage('assistant', '该会话已删除。')
+          }
+          loadConversations()
+        }
+      } catch (e) {
+        // 静默失败
+      }
+    }
+
+    // 初始化折叠状态（在 checkAuthOnLoad 之前执行）
+    initSidebar()
 
     // ===== 背景音乐 =====
     const bgm = document.getElementById('bgm')
@@ -480,6 +1312,8 @@ ${s.content}
       }
     }
 
+    // 启动顺序：先检查登录，再加载背景图
+    checkAuthOnLoad()
     loadImages()
   </script>
 </body>

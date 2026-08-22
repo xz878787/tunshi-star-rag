@@ -1,5 +1,8 @@
 import 'dotenv/config'
 import express from 'express'
+import authRoutes from './routes/auth.js'////
+import chatRoutes from './routes/chat.js'////
+import { authMiddleware } from './middleware/auth.js'////
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 import fs from 'fs'
@@ -12,6 +15,7 @@ import {
   ChatOpenAI,
 } from '@langchain/openai'
 import { SystemMessage } from '@langchain/core/messages'
+import { createConversation, appendMessage, getConversation } from './models/chatModel.js'////
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -21,6 +25,8 @@ const PORT = process.env.PORT || 3000
 
 app.use(express.json())
 app.use(express.static(join(__dirname, '..', 'public')))
+app.use('/api/auth', authRoutes)////
+app.use('/api/conversations', chatRoutes)////
 
 // ===== RAG 组件初始化 =====
 const COLLECTION_NAME = 'ebook8'
@@ -91,12 +97,34 @@ ai助手的回答：`
 }
 
 // ===== API 路由 =====
-app.post('/api/chat', async (req, res) => {
+app.post('/api/chat', authMiddleware, async (req, res) => {////
+  let conversationId = null
+  let accumulatedText = '' // 累积完整回答，流结束后统一落库
   try {
-    const { question } = req.body
+    const { question, conversationId: clientConvId } = req.body
     if (!question) {
       return res.status(400).json({ error: '请输入问题' })
     }
+
+    const userId = req.user.userId
+
+    // ===== 落库准备：确认本次问答挂在哪个会话上 =====
+    if (clientConvId) {
+      // 前端带了会话 id → 校验归属（越权防护：不属于当前用户则拒绝）
+      const conv = await getConversation(Number(clientConvId), userId)
+      if (!conv) {
+        return res.status(403).json({ error: '会话不存在或无权访问' })
+      }
+      conversationId = conv.id
+    } else {
+      // 前端没带 → 自动新建会话，标题取问题前 20 字
+      const title = question.trim().slice(0, 20) || '新对话'
+      const created = await createConversation(userId, title)
+      conversationId = created.id
+    }
+
+    // 先落库用户问题
+    await appendMessage(conversationId, 'user', question, null)
 
     const results = await retrieveRelevantContent(question, 5)
     console.log('Search results count:', results?.length)
@@ -104,29 +132,58 @@ app.post('/api/chat', async (req, res) => {
       console.log('First result content_len:', results[0].content.length)
       console.log('First result preview:', results[0].content?.substring(0, 100))
     }
-    if (!results || results.length === 0) {
-      return res.json({
-        answer: '抱歉，没有在《吞噬星空》中找到相关内容。',
-        sources: [],
-      })
+
+    // 检索来源（检索为空则为空数组，交给前端不显示来源区）
+    const sources = results && results.length > 0
+      ? results.map((item) => ({
+          chapter: item.chapter_num,
+          score: item.score.toFixed(4),
+          content: item.content,
+        }))
+      : []
+    const prompt = results && results.length > 0
+      ? buildPrompt(question, results)
+      : null
+
+    // 开启流式响应：先发一行 meta（conversationId + sources），再流式正文
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8')
+    res.setHeader('Cache-Control', 'no-cache')
+    res.setHeader('X-Accel-Buffering', 'no') // 防止 Nginx 等网关缓存整段再给前端
+    res.flushHeaders()
+    // 注意：这行 JSON 内不含真实换行（JSON.stringify 已把换行转义成 \n），前端按首个换行切分即可
+    res.write(JSON.stringify({ conversationId, sources }) + '\n')
+
+    // ===== 流式输出：每生成一点就推给前端 =====
+    if (!prompt) {
+      // 检索为空 → 流式给出兜底文案
+      accumulatedText = '抱歉，没有在《吞噬星空》中找到相关内容。'
+      res.write(accumulatedText)
+    } else {
+      const stream = await model.stream([new SystemMessage(prompt)])
+      for await (const chunk of stream) {
+        const text = typeof chunk.content === 'string'
+          ? chunk.content
+          : JSON.stringify(chunk.content)
+        if (text) {
+          accumulatedText += text
+          res.write(text)
+        }
+      }
     }
+    res.end()
 
-    const prompt = buildPrompt(question, results)
-    const response = await model.invoke([new SystemMessage(prompt)])
-
-    const sources = results.map((item) => ({
-      chapter: item.chapter_num,
-      score: item.score.toFixed(4),
-      content: item.content,
-    }))
-
-    res.json({
-      answer: response.content,
-      sources,
-    })
+    // 流结束后才落库 AI 完整回答 + 来源（assistant 消息）
+    if (accumulatedText) {
+      await appendMessage(conversationId, 'assistant', accumulatedText, sources)
+    }
   } catch (error) {
     console.error('API Error:', error)
-    res.status(500).json({ error: '服务器内部错误，请稍后再试' })
+    if (!res.headersSent) {
+      // 还没开始推送就报错 → 返回 JSON 错误
+      return res.status(500).json({ error: '服务器内部错误，请稍后再试' })
+    }
+    // 已经开始流式推送 → 直接结束流
+    res.end()
   }
 })
 
@@ -182,3 +239,6 @@ async function start() {
 }
 
 start()
+
+
+

@@ -1,194 +1,324 @@
 # 吞噬星空 RAG 智能问答助手
 
+> 一个基于 **RAG（检索增强生成）** 的《吞噬星空》小说智能问答系统：把 1363 章 EPUB 小说切块、向量化存入 Milvus，用户提问时先向量检索原文片段，再交给大模型结合片段生成**带引用来源、流式逐字输出**的回答，并支持**多用户、多会话、历史记录**的完整 Web 应用。
 
-<img width="2542" height="1326" alt="e943b6fd453a62877c5a037a8a76fa2d" src="https://github.com/user-attachments/assets/b3e36fba-6b38-40fc-9db8-84339b30f8d7" />
-
-> 基于向量检索（Milvus）+ 大语言模型（DashScope / 通义千问）的《吞噬星空》小说智能问答系统。
-> RAG（Retrieval-Augmented Generation）架构，结合小说原文片段进行精准回答。
+**一句话亮点**：不是"套壳的聊天机器人"，而是一条**数据摄入 → 向量检索 → 大模型生成**完整打通的 RAG 工程链路，并覆盖了 Web 应用该有的**鉴权、数据隔离、流式传输、事务一致性**等真实工程能力。
 
 ---
 
-## 功能特性
+## 一、系统架构
 
-- 🧠 **AI 智能问答**：基于小说内容回答问题，引用原文片段佐证
-- 🔍 **向量检索**：Milvus 相似度匹配，快速检索相关章节
-- 📖 **来源追踪**：回答附带检索来源，可展开查看原文和相似度
-- 🖼️ **动态背景**：图片轮播，自动切换吞噬星空主题壁纸
-- 🎵 **背景音乐**：内置主题音乐播放，可随时开关
-- 💬 **简洁界面**：纯前端 HTML + CSS + JS，无需构建工具
-- 🌐 **Web 界面**：Express 提供 HTTP 服务，浏览器直接访问
+```
+┌────────────────────────────────────────────────────────────┐
+│                        浏览器（前端）                        │
+│  原生 HTML + CSS + JS（无构建工具）                          │
+│  登录/注册 · 历史会话侧边栏 · 流式打字机渲染 · 来源折叠 · 音乐  │
+└───────────────────────────┬────────────────────────────────┘
+                            │ HTTP / JSON / 流式
+┌───────────────────────────▼────────────────────────────────┐
+│                    Express 后端（server.js）                │
+│  路由层：/api/auth  /api/conversations  /api/chat           │
+│  中间件：JWT 鉴权（authMiddleware）                          │
+│  模型层：userModel / chatModel（数据访问层）                  │
+└───────────┬─────────────────────────────┬──────────────────┘
+            │                             │
+   ┌────────▼────────┐          ┌─────────▼─────────┐
+   │    MySQL        │          │  Milvus (Zilliz)  │
+   │ 业务数据（落库）  │          │  向量库（检索）    │
+   │ sys_user        │          │  ebook8 集合      │
+   │ conversations   │          │  IVF_FLAT / COSINE│
+   │ messages        │          │  1024 维向量      │
+   └─────────────────┘          └───────────────────┘
+            │                             ▲
+            └───────────┬─────────────────┘
+                        │
+          ┌─────────────▼──────────────┐
+          │  DashScope（阿里云百炼）      │
+          │  生成模型：qwen-plus         │
+          │  向量模型：text-embedding-v3 │
+          └─────────────────────────────┘
+```
+
+**核心分工（面试必答）**：
+- **MySQL** 存**业务数据**：用户、会话、消息（问答记录）
+- **Milvus** 存**知识数据**：小说原文的向量索引（语义检索）
+- 两者职责不同：一个是"记对话"，一个是"找知识"
 
 ---
 
-## 技术栈
+## 二、技术栈
 
-| 层级 | 技术 |
-|------|------|
-| 后端运行时 | Node.js (>= 16) |
-| Web 框架 | Express 5.x |
-| 向量数据库 | Milvus / Zilliz Cloud |
-| LLM / Embedding | 阿里云 DashScope（通义千问） |
-| RAG 框架 | LangChain (LangChain.js) |
-| EPUB 解析 | epub2 + html-to-text |
-| 前端 | 原生 HTML / CSS / JavaScript（无框架） |
+| 分类 | 技术 | 用途 |
+|------|------|------|
+| 后端框架 | Node.js + Express 5 | Web 服务、RESTful API |
+| 数据库 | MySQL 8（mysql2/promise） | 用户/会话/消息持久化 |
+| 向量数据库 | Milvus（Zilliz Cloud，@zilliz/milvus2-sdk-node） | 原文切块向量存储与相似度检索 |
+| 大模型 | DashScope qwen-plus（OpenAI 兼容接口） | 问答生成 |
+| 向量模型 | text-embedding-v3（1024 维） | 文本向量化 |
+| RAG 工具链 | LangChain（loaders / textSplitters / openai） | EPUB 解析、文本切分、模型封装 |
+| 鉴权 | JWT（jsonwebtoken）+ bcrypt | 登录态与密码加密 |
+| 书籍解析 | EPubLoader + html-to-text | EPUB 转纯文本 |
+| 前端 | 原生 HTML + CSS + JS + marked.js | 页面、Markdown 渲染 |
+| 部署 |阿里云服务器部署 | 线上运行 |
 
 ---
 
-## 项目结构
+## 三、实现的功能
+
+### 3.1 数据摄入管道（`npm run ingest`）
+- EPUB 小说按章节解析 → 跳过插图短页（`<100` 字符）
+- `RecursiveCharacterTextSplitter` 切块：`chunkSize=500`、`overlap=50`（上下文连贯）
+- 逐条 embedding 后写入 Milvus `ebook8` 集合（IVF_FLAT 索引、COSINE 度量）
+- **逐条串行处理**，规避 DashScope 免费版 QPS 限流
+
+### 3.2 RAG 问答（`npm run rag`，CLI 版）
+- 提问 → 向量化 → Milvus 检索 top-k → 拼 prompt → LLM 回答
+- 打印每条命中的**章节号 + 相似度分数 + 原文**，链路透明可验证
+
+### 3.3 Web 智能问答助手（`npm start`）
+- **用户系统**：注册 / 登录（bcrypt 加密、JWT 鉴权、防用户名枚举）
+- **多会话管理**：自动建会话、历史会话列表、点击切换、删除
+- **RAG 检索 + 来源展示**：回答附带命中的章节号、相似度、原文片段（可折叠展开）
+- **流式输出**：回答像 ChatGPT 一样逐字浮现（打字机效果），而非转圈等待
+- **多用户数据隔离**：每个用户只能看到/操作自己的会话（`WHERE id AND user_id`）
+- **历史侧边栏**：可折叠、localStorage 记住状态
+- **氛围功能**：全图背景、透明 UI、背景图轮播、音乐播放（`bgm.mp3`）
+
+---
+
+## 四、快速开始
+
+### 1. 配置环境变量（`.env`，参照 `.env.example`）
+```
+# 大模型（DashScope 阿里云百炼）
+MODEL_NAME=qwen-plus
+OPENAI_API_KEY=sk-你的_DashScope_API_Key
+OPENAI_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+EMBEDDINGS_MODEL_NAME=text-embedding-v3
+
+# 向量库（Zilliz Cloud）
+MILVUS_ADDRESS=https://你的集群地址...zilliz.com.cn
+MILVUS_TOKEN=你的_Zilliz_Token
+
+# MySQL
+DB_HOST=127.0.0.1
+DB_PORT=3307
+DB_USER=root
+DB_PASSWORD=你的_MySQL_密码
+DB_NAME=rag_system
+
+# JWT
+JWT_SECRET=你的_JWT_密钥
+JWT_EXPIRES_IN=2h
+```
+
+### 2. 建表（MySQL）
+```sql
+CREATE TABLE sys_user (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  username VARCHAR(50) NOT NULL UNIQUE,
+  password VARCHAR(100) NOT NULL,          -- bcrypt 哈希
+  nickname VARCHAR(30),
+  role VARCHAR(20) DEFAULT 'user',
+  create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+  update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE conversations (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT NOT NULL,
+  title VARCHAR(100),
+  create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+  update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_user (user_id, update_time)
+);
+
+CREATE TABLE messages (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  conversation_id BIGINT NOT NULL,
+  role VARCHAR(10) NOT NULL,               -- user / assistant
+  content TEXT NOT NULL,
+  sources JSON NULL,
+  create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_conv (conversation_id, create_time)
+);
+```
+
+### 3. 安装与运行
+```bash
+npm install
+npm run ingest   # ① 摄入小说数据到 Milvus（首次）
+npm start        # ② 启动 Web 服务，浏览器访问 http://localhost:3000
+```
+
+---
+
+## 五、项目结构
 
 ```
 tsxkRAG/
 ├── src/
-│   ├── main.mjs              # EPUB 解析 + 分块 + 向量入库
-│   ├── query.mjs             # 命令行查询测试
-│   ├── rag.mjs               # RAG 核心逻辑（命令行版）
-│   └── server.mjs            # Express Web 服务（推荐使用）
+│   ├── main.mjs          # 数据摄入：EPUB → 切块 → 向量化 → 入库
+│   ├── query.mjs         # 向量检索验证脚本
+│   ├── rag.mjs           # RAG 问答 CLI（检索 + 生成）
+│   ├── server.js         # Web 主服务（含流式 /api/chat）
+│   ├── middleware/auth.js# JWT 鉴权中间件
+│   ├── routes/
+│   │   ├── auth.js       # 登录 / 注册 / 个人信息
+│   │   └── chat.js       # 会话 CRUD
+│   ├── models/
+│   │   ├── db.js         # MySQL 连接池 + 参数化查询封装
+│   │   ├── userModel.js  # 用户表操作
+│   │   └── chatModel.js  # 会话/消息表操作（含事务）
+│   └── utils/jwt.js      # JWT 签发/校验封装
 ├── public/
-│   ├── index.html            # 前端主页面
-│   └── assets/
-│       ├── images/           # 背景图片素材（jpg/png/webp 等）
-│       └── audio/            # 背景音乐素材（mp3/wav 等）
-├── .env                      # 环境变量（不提交 git）
-├── .env.example              # 环境变量模板
-├── .gitignore                # Git 忽略规则
-├── .gitattributes            # Git 换行符/二进制设置
-├── package.json              # 项目依赖和命令
-└── pnpm-lock.yaml            # 依赖锁定
+│   ├── index.html        # 单页前端（登录/会话/流式/音乐/背景）
+│   └── assets/           # 音频、图片
+├── .env.example          # 环境变量模板
+└── package.json
 ```
 
 ---
 
-## 快速开始
+## 六、核心实现讲解（面试重点）
 
-### 1. 安装依赖
-
-推荐使用 `pnpm`，也可使用 `npm` / `yarn`：
-
-```bash
-pnpm install
-# 或 npm install
-# 或 yarn install
+### 6.1 RAG 检索 → 生成链路（server.js）
+```js
+// ① 用户问题向量化
+const queryVector = await getEmbedding(question)
+// ② Milvus 向量检索 top-5，COSINE 相似度
+const searchResult = await client.search({
+  collection_name: COLLECTION_NAME,
+  vectors: [queryVector],
+  limit: k,
+  metric_type: MetricType.COSINE,
+  output_fields: ['id', 'content', 'book_id', 'chapter_num'],
+})
+// ③ 检索片段拼进 prompt
+const prompt = buildPrompt(question, results)
+// ④ 大模型流式生成
+const stream = await model.stream([new SystemMessage(prompt)])
 ```
 
-### 2. 配置环境变量
+### 6.2 流式输出（打字机效果）
+- **后端**：`model.stream()` 逐 chunk `res.write()`；先发一行 `meta JSON`（`{conversationId, sources}`），再流式正文
+- **前端**：`fetch` + `res.body.getReader()` + `TextDecoder('utf-8')` 边读边用 `marked.parse` 渲染
+- **三个关键点**：
+  1. `TextDecoder` 解决中文被拆到两个 chunk 时乱码
+  2. `X-Accel-Buffering: no` 防止 Nginx 等网关缓冲导致"不流式"
+  3. meta 行先发，让前端**先渲染检索来源**、再流式填正文，来源不丢失
 
-复制 `.env.example` 为 `.env`，填入你的真实 Key：
+### 6.3 数据隔离与越权防护
+- `getConversation(id, userId)` 使用 `WHERE id = ? AND user_id = ?`
+- 所有会话接口（查看/删除/续聊）都带 `authMiddleware`，`userId` 取自 JWT（**不信前端传**）
+- 越权访问直接返回 404/403
 
-```bash
-# Windows (PowerShell)
-Copy-Item .env.example .env
+### 6.4 事务保证删除一致性
+删除会话时先删 `messages` 再删 `conversations`，用 `pool.getConnection()` 拿到**同一连接**手动开启事务，失败回滚，避免"会话删了消息残留"。
 
-# macOS / Linux
-cp .env.example .env
-```
-
-编辑 `.env`，填写以下内容：
-
-```env
-# 大语言模型（通义千问）
-MODEL_NAME=qwen-plus
-OPENAI_API_KEY=sk-你的_DashScope_API_Key
-OPENAI_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
-
-# 向量嵌入模型
-EMBEDDINGS_MODEL_NAME=text-embedding-v3
-
-# Milvus / Zilliz Cloud
-MILVUS_ADDRESS=https://你的集群地址.serverless.ali-cn-hangzhou.cloud.zilliz.com.cn
-MILVUS_TOKEN=你的_Zilliz_API_Token
-```
-
-**获取 Key 的地址：**
-- DashScope API Key：<https://dashscope.console.aliyun.com/apiKey>
-- Zilliz Cloud Token：<https://cloud.zilliz.com.cn/>
-
-### 3. 放入素材（可选）
-
-```bash
-# 图片素材 → 支持 jpg/jpeg/png/gif/webp/bmp
-# 复制到：
-public/assets/images/
-
-# 背景音乐 → 支持 mp3/wav/ogg/flac/m4a
-# 复制到：
-public/assets/audio/
-```
-
-*注：不放入素材也能运行，只是没有背景轮播和音乐。*
-
-### 4. 入库 EPub 小说
-
-把你的《吞噬星空》`.epub` 文件放到项目根目录，确认 `src/main.mjs` 中 `EPUB_FILE` 路径正确。
-
-然后执行入库：
-
-```bash
-pnpm run ingest
-# 或 node src/main.mjs
-```
-
-等待全部章节切分并插入 Milvus（约 1500+ 章节）。
-
-### 5. 启动 Web 服务
-
-```bash
-pnpm start
-# 或 node src/server.mjs
-```
-
-看到提示即成功：
-
-```
-吞噬星空 RAG 助手已启动！
-打开浏览器访问: http://localhost:3000
-```
-
-在浏览器打开 **http://localhost:3000** 即可使用。
+### 6.5 安全实践
+- 密码 **bcrypt 哈希**（成本因子 10），不存明文
+- 全程 **参数化查询**（`?` 占位符），防 SQL 注入
+- "用户不存在"与"密码错误"返回**同一提示**，防用户名枚举
+- `JWT_SECRET` 走环境变量，不硬编码；token 载荷剔除密码字段
+- 前端渲染用 `textContent` 而非 `innerHTML`，防 XSS
 
 ---
 
-## 命令速查
+## 七、遇到的问题与优化思路
 
-| 命令 | 说明 |
-|------|------|
-| `pnpm run ingest` | 解析 EPUB 并将章节向量存入 Milvus（只需运行一次） |
-| `pnpm start` | 启动 Web 问答服务（推荐） |
-| `pnpm run query` | 命令行模式查询测试 |
-| `pnpm run rag` | 命令行模式完整 RAG 问答 |
-
----
-
-## 常见问题
-
-### Q: 打开页面没有背景音乐？
-A: 浏览器自动播放限制，点击页面任意位置或右上角音乐按钮即可播放。也请确认 `public/assets/audio/` 里有音乐文件。
-
-### Q: 背景图片没显示？
-A: 把图片放入 `public/assets/images/`，支持 jpg/png/webp 等格式。图片会自动扫描并轮播。
-
-### Q: 回答说「不知道」或答非所问？
-A: 可能 Milvus 里的集合为空或错了。检查 `src/server.mjs` 中 `COLLECTION_NAME` 是否和入库时的一致，并确认 EPUB 已成功入库。
-
-### Q: 音乐/图片文件名很长或包含中文怎么办？
-A: 完全没问题，代码已自动对 URL 编码处理。
-
-### Q: 可以部署到服务器吗？
-A: 可以。推荐：
-- **演示/本地**：直接 `node src/server.mjs`
-- **长期运行**：用 `pm2` 守护进程
-- **云平台**：Render / Railway / 阿里云轻量服务器
-- 注意：`.env` 的 Key 在生产环境也需要配置
+| # | 问题 | 优化思路 / 做法 |
+|---|------|----------------|
+| 1 | 回答一次性输出，等很久、体验差 | 改为**流式输出**（打字机），首字秒出 |
+| 2 | 流式改造后检索来源（章节/分数/原文）会丢 | **meta 行先发** sources，前端先渲染来源区再流式正文 |
+| 3 | 中文跨 chunk 被切断出现乱码 | `TextDecoder('utf-8', { stream: true })` 自动拼接 |
+| 4 | 接入网关（Nginx）后流式失效 | 加 `X-Accel-Buffering: no` |
+| 5 | 登录硬编码，无法注册、无法按用户存数据 | 升级 **MySQL + bcrypt + JWT**，多用户隔离 |
+| 6 | 会话删除可能残留消息（不一致） | **数据库事务**保证原子性 |
+| 7 | DashScope 免费版 QPS 受限，并发 embedding 被限流 | **逐条串行**处理摄入 |
+| 8 | 整页滚动、左右滚动不独立 | 视口高度锁死 + 内部区域各自 `overflow-y: auto` |
+| 9 | 滚动条抢眼 | 极细（4px）+ 半透明滑块，既能定位又不干扰 |
+| 10 | 向量检索是**单路稠密检索**，无重排 | 后续可升级：**混合检索**（BM25+向量，RRF 融合）扩召回 → **重排**（bge-reranker）提精度 → 封装成可配置 **Query Pipeline** |
 
 ---
 
-## 安全提示
+## 八、踩坑与解决方案(真实踩坑经历)
 
-- **绝对不要**把 `.env` 文件提交到 Git / GitHub（.gitignore 已忽略）
-- **不要**把包含真实 API Key 的 `.env` 发给任何人
-- DashScope / Zilliz 账号注意设置 API Key 额度和白名单，防止盗刷
+### 坑 1：DashScope 免费版 QPS 限流
+- **现象**：摄入小说时并发 embedding 频繁报限流错误。
+- **原因**：免费版有 QPS 上限，`Promise.all` 并发请求触发。
+- **解法**：改为**逐条串行**生成向量再批量插入。
+- **收获**：调用第三方 API 前要了解其限流策略，工程上要控制并发。
+
+### 坑 2：COLLECTION_NAME 不一致，检索到"别的书"
+- **现象**：问答返回《天龙八部》的内容，与《吞噬星空》无关。
+- **原因**：query 脚本里 collection 写成了 `ebook4`，实际数据在 `ebook8`。
+- **解法**：统一三个入口（main/query/server）的 `COLLECTION_NAME`。
+- **收获**：配置常量要单一来源、全局一致，跨文件靠人工同步容易出错。
+
+### 坑 3：pnpm / npm 混用被沙箱拦截
+- **现象**：`pnpm add` 卡在 store 目录（指向受限路径），npm 崩溃。
+- **原因**：pnpm 全局 store 指向受限路径，npm 无法解析 pnpm 的符号链接 node_modules。
+- **解法**：把 store 复制到项目内 + `--store-dir` 重链。
+- **收获**：理解 pnpm 的 store（全局缓存+硬链接）机制，以及 npm/pnpm 不能混用。
+
+### 坑 4：sys_user 表缺 role 字段
+- **现象**：JWT payload 想带 `role`，但表里没有该列。
+- **解法**：`ALTER TABLE sys_user ADD COLUMN role VARCHAR(20) DEFAULT 'user'`。
+- **收获**：Schema 演进是常态，新增字段要设 `DEFAULT` 避免影响存量数据。
+
+### 坑 5：catch 块变量名不匹配导致运行时崩溃
+- **现象**：`catch (error)` 里却用了 `err`，报 `ReferenceError`。
+- **解法**：保持 catch 参数名与块内引用一致。
+- **收获**：低级但致命，代码规范（命名一致）能避免。
+
+### 坑 6：文件路径字符串必须精确匹配
+- **现象**：读不到 EPUB / 音频文件。
+- **原因**：磁盘文件名含空格/特殊字符，路径字符串与真实文件名不一致。
+- **解法**：路径照抄实际文件名，必要时 `encodeURIComponent`。
+
+### 坑 7：浏览器音频自动播放被拦截
+- **现象**：页面加载后背景音乐不响。
+- **原因**：浏览器要求用户交互后才能播放音频。
+- **解法**：用户点击页面任意位置 / 音乐按钮后才 `audio.play()`。
+
+### 坑 8：后端改动后接口不生效
+- **现象**：改了路由，前端仍 404。
+- **原因**：Node 进程未重启，改动未加载。
+- **解法**：每次改后端代码必须重启服务（`Ctrl+C` 后重新 `node src/server.js`）。
+
+### 坑 9：敏感配置进 Git
+- **现象**：`.env`（含 DashScope Key、Zilliz Token）可能被提交到仓库。
+- **解法**：`.env` 加入 `.gitignore`，只提交 `.env.example` 模板；`JWT_SECRET` 从环境变量读取。
+- **收获**：密钥泄露 = 凭据被滥用，必须环境变量注入 + 模板文件协同。
+
+### 坑 10：仓库文件超 GitHub 100MB 限制
+- **现象**：`public/assets.tar`（打包的素材）过大无法 push。
+- **解法**：`.gitignore` 忽略 `*.tar`，素材从资源目录读取。
+- **收获**：大文件不该进 Git，用外部存储或资源目录。
+
+### 坑 11：Railway 部署构建失败
+- **现象**：Railway 无法启动 Node 项目。
+- **原因**：未显式配置 build/start 命令。
+- **解法**：配置 `build: npm install`、`start: node src/server.js`，端口用 `process.env.PORT || 3000`。
 
 ---
 
-## License
+## 九、项目亮点总结（自我评价）
 
-ISC
+1. **完整的 RAG 工程链路**：摄入（EPUB→切块→向量化→入库）→ 检索（Milvus top-k）→ 生成（流式），从数据到问答全部打通，且可复现验证。
+2. **真实的 Web 工程能力**：JWT 鉴权、bcrypt 密码、多用户数据隔离、事务一致性、参数化查询防注入——不是 demo，是有安全意识的工程。
+3. **流式输出体验**：ChatGPT 式打字机 + 来源溯源，兼顾效果与原理（ReadableStream / TextDecoder / 网关缓冲）。
+4. **业务数据与向量数据分离**：MySQL 管"对话记录"，Milvus 管"知识检索"，讲得清分工。
+5. **踩坑多、复盘深**：限流、集合名不一致、沙箱、自动播放等 11 个坑都沉淀成了解决方案。
+
+---
+
+## 十、后续优化方向
+
+- [ ] **混合检索**：BM25 稀疏检索 + 向量稠密检索，RRF 融合，解决人名/数字等精确词召回差
+- [ ] **重排（Rerank）**：bge-reranker 对 top-k 精排，提升送入 prompt 的质量
+- [ ] **Query Pipeline 化**：把检索-生成链路封装成可配置、可缓存、可流式的组件
+- [ ] **会话标题智能生成**：用 LLM 根据首条问题自动生成
+- [ ] **消息分页**：长会话历史接口分页加载，避免一次拉全量
+

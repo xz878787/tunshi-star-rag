@@ -7,7 +7,7 @@
     "ingest": "node src/main.mjs",
     "query": "node src/query.mjs",
     "rag": "node src/rag.mjs",
-    "start": "node src/server.mjs",
+    "start": "node src/server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
@@ -20,16 +20,19 @@
   ],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
+  "type": "module",
   "dependencies": {
     "@langchain/community": "^1.1.29",
     "@langchain/core": "^1.2.3",
     "@langchain/openai": "^1.5.5",
     "@langchain/textsplitters": "^1.0.1",
     "@zilliz/milvus2-sdk-node": "^3.0.3",
+    "bcrypt": "^6.0.0",
     "dotenv": "^17.4.2",
     "epub2": "^3.0.2",
     "express": "^5.2.1",
-    "html-to-text": "^10.0.0"
+    "html-to-text": "^10.0.0",
+    "jsonwebtoken": "^9.0.3",
+    "mysql2": "^3.23.3"
   }
 }
