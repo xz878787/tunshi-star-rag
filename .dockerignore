@@ -1,0 +1,20 @@
+# 依赖与构建产物
+node_modules
+npm-debug.log
+
+# 敏感配置（通过 docker-compose 环境变量注入）
+.env
+.env.local
+
+# 版本控制
+.git
+.gitignore
+
+# 文档（无需进镜像）
+*.md
+docs
+blog*.md
+
+# 大文件（超过 GitHub/镜像体积限制）
+*.tar
+*.zip

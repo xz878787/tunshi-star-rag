@@ -322,3 +322,71 @@ const stream = await model.stream([new SystemMessage(prompt)])
 - [ ] **会话标题智能生成**：用 LLM 根据首条问题自动生成
 - [ ] **消息分页**：长会话历史接口分页加载，避免一次拉全量
 
+---
+
+## 十一、部署指南（阿里云 ECS + Docker Compose）
+
+### 11.1 部署架构
+
+```
+用户浏览器
+   │ HTTP(80)
+┌──▼──────────────┐
+│   Nginx 反代      │  proxy_buffering off（保证流式打字机）
+└──┬──────────────┘
+┌──▼──────────────┐
+│  app 容器:3000    │  Node + Express + RAG
+└──┬──────────────┘
+   │ 容器网络内连 mysql 服务
+┌──▼──────────────┐
+│ mysql 容器:3306   │  数据卷持久化，initdb.d 自动建表
+└──────────────────┘
+   ├── Milvus（云端，环境变量注入）
+   └── DashScope（云端，环境变量注入）
+```
+
+### 11.2 部署产物
+
+| 文件 | 作用 |
+|------|------|
+| [docker-compose.yml](file:///d:/test/demo-吞噬星空1.0/tsxkRAG/docker-compose.yml) | 一键编排 mysql + app + nginx 三服务 |
+| [Dockerfile](file:///d:/test/demo-吞噬星空1.0/tsxkRAG/Dockerfile) | node:20-slim 镜像，bcrypt 原生模块可用 |
+| [.dockerignore](file:///d:/test/demo-吞噬星空1.0/tsxkRAG/.dockerignore) | 排除 .env / node_modules / *.tar / 文档 |
+| [deploy/schema.sql](file:///d:/test/demo-吞噬星空1.0/tsxkRAG/deploy/schema.sql) | MySQL 首次启动自动建三张表 |
+| [deploy/nginx.conf](file:///d:/test/demo-吞噬星空1.0/tsxkRAG/deploy/nginx.conf) | 反向代理 + 关闭缓冲保流式 |
+
+### 11.3 部署步骤
+
+```bash
+# 1. 在 docker-compose.yml 同级放置 .env（参照 .env.example 填写真实生产值）
+#    - DB_HOST 填 mysql、DB_PORT 填 3306（容器内用服务名互访）
+#    - JWT_SECRET 用高强度随机值
+
+# 2. 构建并启动全套
+docker compose up -d --build
+
+# 3. 查看状态
+docker compose ps
+
+# 4. 访问
+#    http://服务器公网IP  （nginx 80 端口入口）
+```
+
+### 11.4 数据迁移（可选，把本地 dev 数据带上去）
+
+```bash
+# 本地导出
+docker exec rag-mysql8 mysqldump -uroot -p<密码> rag_system > rag_system_dump.sql
+# 传到服务器后导入
+docker exec -i rag-mysql8 mysql -uroot -p<密码> rag_system < rag_system_dump.sql
+```
+
+### 11.5 生产要点
+
+1. **MySQL 数据持久化**：`mysql-data` 数据卷挂载，容器重建不丢数据（备份用 `mysqldump` 定时导出）。
+2. **流式输出**：nginx 已配置 `proxy_buffering off` + `proxy_cache off`，配合后端 `X-Accel-Buffering: no`，打字机效果在线生效。
+3. **bcrypt 原生模块**：用 `node:20-slim`（Debian 系）官方镜像，避免 alpine 上编译失败。
+4. **大素材**：`.tar` 已进 `.gitignore` 和 `.dockerignore`，通过 `public/assets/` 由 Express 静态托管。
+5. **安全组**：阿里云控制台放行 80 端口（Nginx 入口）；3306 数据库端口无需对外暴露（容器内网络互访）。
+6. **HTTPS（建议）**：生产用域名后可在 nginx 增加 443 server 配置 SSL 证书。
+
