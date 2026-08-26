@@ -2,7 +2,7 @@
 # 用法：
 #   1. 在 docker-compose.yml 同级放置 .env（参照 .env.example 填写真实值）
 #   2. 导入 tsxkrag-app 镜像后启动：docker-compose up -d
-#   3. 浏览器访问：http://服务器IP
+#   3. 浏览器访问：https://rag.xz878787.cn
 #
 # 服务组成：
 #   mysql —— MySQL 业务数据库（Compose 自动创建并持久化）
@@ -63,8 +63,10 @@ services:
       - app
     volumes:
       - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./deploy/certs:/etc/nginx/certs:ro
     ports:
       - "80:80"
+      - "443:443"
 
 volumes:
   mysql-data:
