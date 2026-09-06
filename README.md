@@ -1,6 +1,7 @@
 # 吞噬星空 RAG 智能问答助手
 
-![Uploading image.png…]()
+<img width="2560" height="1600" alt="image" src="https://github.com/user-attachments/assets/b8329973-280d-417e-91cf-8371acb48aa3" />
+
 
 
 > 一个基于 **RAG（检索增强生成）** 的《吞噬星空》小说智能问答系统：把 1363 章 EPUB 小说切块、向量化存入 Milvus，用户提问时先向量检索原文片段，再交给大模型结合片段生成**带引用来源、流式逐字输出**的回答，并支持**多用户、多会话、历史记录**的完整 Web 应用。
