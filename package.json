@@ -24,6 +24,7 @@
   "dependencies": {
     "@langchain/community": "^1.1.29",
     "@langchain/core": "^1.2.3",
+    "@langchain/langgraph": "^1.4.15",
     "@langchain/openai": "^1.5.5",
     "@langchain/textsplitters": "^1.0.1",
     "@zilliz/milvus2-sdk-node": "^3.0.3",
@@ -33,6 +34,7 @@
     "express": "^5.2.1",
     "html-to-text": "^10.0.0",
     "jsonwebtoken": "^9.0.3",
-    "mysql2": "^3.23.3"
+    "mysql2": "^3.23.3",
+    "zod": "^4.6.2"
   }
 }
