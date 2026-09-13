@@ -165,6 +165,56 @@
       white-space: pre-wrap;
       word-break: break-word;
     }
+    /* ===== 思考过程折叠区（DeepSeek 风格）===== */
+    .think-box {
+      margin: 0 0 10px;
+      max-width: 85%;
+      font-size: 13px;
+    }
+    .think-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      user-select: none;
+      color: rgba(245, 175, 25, 0.75);
+      font-size: 13px;
+      font-weight: 500;
+    }
+    .think-toggle:hover { color: rgba(245, 175, 25, 0.95); }
+    .think-caret { font-size: 10px; transition: transform 0.2s; }
+    .think-box.collapsed .think-caret { transform: rotate(-90deg); }
+    /* 思考中状态：标题后跟动态省略号 */
+    .think-box.thinking .think-status::after {
+      content: '...';
+      animation: thinkDots 1.2s steps(4, end) infinite;
+    }
+    @keyframes thinkDots {
+      0% { content: ''; }
+      25% { content: '.'; }
+      50% { content: '..'; }
+      75% { content: '...'; }
+    }
+    .think-body {
+      margin-top: 8px;
+      padding-left: 12px;
+      border-left: 2px solid rgba(255, 255, 255, 0.12);
+      max-height: 260px;
+      overflow-y: auto;
+    }
+    .think-box.collapsed .think-body { display: none; }
+    .think-line {
+      margin: 4px 0;
+      line-height: 1.7;
+      color: rgba(255, 255, 255, 0.45);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    /* 思考区内部滚动条：4px 半透明（20%，hover 40%） */
+    .think-body::-webkit-scrollbar { width: 4px; }
+    .think-body::-webkit-scrollbar-track { background: transparent; }
+    .think-body::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 2px; }
+    .think-body::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.4); }
     .input-area {
       position: sticky;
       bottom: 0;
@@ -924,6 +974,23 @@
 
     let loading = false
 
+    // 把检索来源区渲染为消息 div 的尾部（历史回放与流式共用）
+    function renderSources(div, sources) {
+      if (!sources || sources.length === 0) return
+      const wrap = document.createElement('div')
+      wrap.className = 'sources'
+      let html = '<details><summary>查看检索来源</summary>'
+      sources.forEach((s) => {
+        html += `<div class="source-item">
+<strong>[第${s.chapter}章]</strong> 相似度: ${s.score}
+${s.content}
+</div>`
+      })
+      html += '</details>'
+      wrap.innerHTML = html
+      div.appendChild(wrap)
+    }
+
     // 构造一条消息 DOM，返回 { div, bubble } 供流式逐步更新正文
     function createMessage(role, text, sources) {
       const div = document.createElement('div')
@@ -936,20 +1003,9 @@
         bubbleHTML = text.replace(/</g, '&lt;').replace(/>/g, '&gt;')
       }
 
-      let html = `<div class="bubble">${bubbleHTML}</div>`
+      div.innerHTML = `<div class="bubble">${bubbleHTML}</div>`
+      renderSources(div, sources)
 
-      if (sources && sources.length > 0) {
-        html += '<div class="sources"><details><summary>查看检索来源</summary>'
-        sources.forEach((s, i) => {
-          html += `<div class="source-item">
-<strong>[第${s.chapter}章]</strong> 相似度: ${s.score}
-${s.content}
-</div>`
-        })
-        html += '</details></div>'
-      }
-
-      div.innerHTML = html
       chatArea.appendChild(div)
       chatArea.scrollTop = chatArea.scrollHeight
       return { div, bubble: div.querySelector('.bubble') }
@@ -980,50 +1036,93 @@ ${s.content}
       return h
     }
 
-    // 流式解析后端推送：第一行是 meta（conversationId + sources），之后是正文
+    // ===== 思考过程折叠区（DeepSeek 风格）=====
+    // 在消息气泡上方插入「正在思考」面板：默认展开且完成后保留，可点击收起/再展开
+    function attachThinkPanel(refs) {
+      const box = document.createElement('div')
+      box.className = 'think-box thinking'
+      box.innerHTML = '<div class="think-toggle"><span class="think-status">正在思考</span><span class="think-caret">▶</span></div><div class="think-body"></div>'
+      refs.div.insertBefore(box, refs.bubble)
+      refs.thinkBox = box
+      refs.thinkBody = box.querySelector('.think-body')
+      refs.thinkStart = Date.now() // 思考计时起点
+      refs.thinkDone = false
+      refs.bubble.style.display = 'none' // 正文未开始前先隐藏空气泡
+      box.querySelector('.think-toggle').addEventListener('click', () => {
+        box.classList.toggle('collapsed')
+      })
+    }
+
+    // 追加一行思考内容（自动滚到底部）
+    function appendThink(refs, text) {
+      if (!refs?.thinkBody) return
+      const line = document.createElement('div')
+      line.className = 'think-line'
+      line.textContent = text
+      refs.thinkBody.appendChild(line)
+      refs.thinkBody.scrollTop = refs.thinkBody.scrollHeight
+    }
+
+    // 思考结束：停止「正在思考」动画，状态行变为「已完成思考（用时 X 秒）」
+    // 注意：不自动收起——思考内容默认保留展开，用户可点击标题手动收起/再展开
+    function finalizeThink(refs) {
+      if (!refs?.thinkBox || refs.thinkDone) return
+      refs.thinkDone = true
+      const sec = ((Date.now() - refs.thinkStart) / 1000).toFixed(1)
+      refs.thinkBox.classList.remove('thinking')
+      refs.thinkBox.querySelector('.think-status').textContent = `已完成思考（用时 ${sec} 秒）`
+      refs.bubble.style.display = ''
+    }
+
+    // 流式解析后端推送：NDJSON 事件流，每行一个 JSON 事件
+    // 事件顺序：meta（会话）→ think…（思考步骤）→ sources（检索来源）→ token…（正文）→ done（总用时）
     async function streamAnswer(res) {
       const reader = res.body?.getReader()
       if (!reader) return
       const decoder = new TextDecoder('utf-8') // 关键：把被切断的中文字节拼回完整字符
       let buffer = ''
-      let metaParsed = false
-      let bubble = null
+      let refs = null        // { div, bubble, thinkBox, thinkBody, ... }
+      let answerText = ''    // token 事件累积的正文
       try {
         while (true) {
           const { done, value } = await reader.read()
           if (done) break
           buffer += decoder.decode(value, { stream: true })
 
-          // 先解析领先导的 meta 行（conversationId + sources）
-          if (!metaParsed) {
-            const nl = buffer.indexOf('\n')
-            if (nl >= 0) {
-              let meta = { conversationId: null, sources: [] }
-              try { meta = JSON.parse(buffer.slice(0, nl)) } catch (e) { /* 保留默认值 */ }
-              buffer = buffer.slice(nl + 1)
-              metaParsed = true
-              // 记录会话 id，供后续追问挂在同一会话
-              if (meta.conversationId) currentConversationId = Number(meta.conversationId)
-              // 用 sources 预先渲染气泡 + 检索来源区（与原来一致）
-              const m = createMessage('assistant', '', meta.sources || [])
-              bubble = m.bubble
-            }
-          }
+          // 按行切分事件（JSON.stringify 保证每行是完整 JSON，内部换行已转义）
+          let nl
+          while ((nl = buffer.indexOf('\n')) >= 0) {
+            const line = buffer.slice(0, nl).trim()
+            buffer = buffer.slice(nl + 1)
+            if (!line) continue
+            let evt
+            try { evt = JSON.parse(line) } catch (e) { continue } // 容错：跳过坏行
 
-          if (metaParsed && bubble) {
-            bubble.innerHTML = marked.parse(buffer)
+            if (evt.type === 'meta') {
+              // 记录会话 id，供后续追问挂在同一会话；创建消息容器 + 思考面板
+              if (evt.conversationId) currentConversationId = Number(evt.conversationId)
+              refs = createMessage('assistant', '', [])
+              attachThinkPanel(refs)
+            } else if (evt.type === 'think') {
+              appendThink(refs, evt.text) // 思考中：面板保持展开
+            } else if (evt.type === 'sources') {
+              renderSources(refs?.div, evt.sources) // 来源区渲染在气泡下方
+            } else if (evt.type === 'token' && refs) {
+              finalizeThink(refs)                 // 正文开始 → 停止思考动画（面板保持展开）
+              answerText += evt.text
+              refs.bubble.innerHTML = marked.parse(answerText)
+            } else if (evt.type === 'done') {
+              finalizeThink(refs)                 // 兜底：无正文的极端情况也收尾
+            }
             chatArea.scrollTop = chatArea.scrollHeight
           }
         }
         // 刷新解码器末尾残留的字节
         buffer += decoder.decode()
-        if (metaParsed && bubble) bubble.innerHTML = marked.parse(buffer)
       } catch (e) {
         // 中断/断网：保留已生成的半截内容，避免整段丢失
-        if (bubble) {
-          buffer += decoder.decode()
-          bubble.innerHTML = marked.parse(buffer || '（响应中断）')
-        }
+        if (refs?.bubble) refs.bubble.innerHTML = marked.parse(answerText || '（响应中断）')
+        finalizeThink(refs)
       }
     }
 
@@ -1173,8 +1272,20 @@ ${s.content}
         currentConversationId = id
         chatArea.innerHTML = ''
         ;(data.data.messages || []).forEach(m => {
-          if (m.role === 'user') addMessage('user', m.content)
-          else addMessage('assistant', m.content, m.sources)
+          if (m.role === 'user') { addMessage('user', m.content); return }
+          // assistant 消息：先渲染正文与来源；若带已落库的思考过程 → 复现「已完成思考」面板
+          const created = createMessage('assistant', m.content, m.sources)
+          if (Array.isArray(m.thinking?.lines) && m.thinking.lines.length) {
+            attachThinkPanel(created)
+            m.thinking.lines.forEach(l => appendThink(created, l))
+            // 直接收尾：不重新计时，用落库的思考用时
+            created.thinkDone = true
+            created.thinkBox.classList.remove('thinking')
+            const sec = Number(m.thinking.seconds)
+            created.thinkBox.querySelector('.think-status').textContent =
+              (Number.isFinite(sec) && sec > 0) ? `已完成思考（用时 ${sec} 秒）` : '已完成思考'
+            created.bubble.style.display = ''
+          }
         })
         renderConversations()
         chatArea.scrollTop = chatArea.scrollHeight
