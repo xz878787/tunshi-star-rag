@@ -1,21 +1,14 @@
-import 'dotenv/config'
+// ragGraph.mjs 必须第一个导入：它内部按模块位置加载项目根的 .env，
+// 保证后续 db.js / jwt 等模块求值时环境变量已就绪（从任意目录启动均可）
+import { runAgenticRAG, initRagGraph } from './ragGraph.mjs'
 import express from 'express'
-import authRoutes from './routes/auth.js'////
-import chatRoutes from './routes/chat.js'////
-import { authMiddleware } from './middleware/auth.js'////
+import authRoutes from './routes/auth.js'
+import chatRoutes from './routes/chat.js'
+import { authMiddleware } from './middleware/auth.js'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 import fs from 'fs'
-import {
-  MilvusClient,
-  MetricType,
-} from '@zilliz/milvus2-sdk-node'
-import {
-  OpenAIEmbeddings,
-  ChatOpenAI,
-} from '@langchain/openai'
-import { SystemMessage } from '@langchain/core/messages'
-import { createConversation, appendMessage, getConversation } from './models/chatModel.js'////
+import { createConversation, appendMessage, getConversation } from './models/chatModel.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -25,81 +18,20 @@ const PORT = process.env.PORT || 3000
 
 app.use(express.json())
 app.use(express.static(join(__dirname, '..', 'public')))
-app.use('/api/auth', authRoutes)////
-app.use('/api/conversations', chatRoutes)////
-
-// ===== RAG 组件初始化 =====
-const COLLECTION_NAME = 'ebook8'
-const VECTOR_DIM = 1024
-
-const embedding = new OpenAIEmbeddings({
-  apiKey: process.env.OPENAI_API_KEY,
-  model: process.env.EMBEDDINGS_MODEL_NAME,
-  configuration: {
-    baseURL: process.env.OPENAI_BASE_URL,
-  },
-  dimensions: VECTOR_DIM,
-})
-
-const model = new ChatOpenAI({
-  temperature: 0.7,
-  model: process.env.MODEL_NAME,
-  apiKey: process.env.OPENAI_API_KEY,
-  configuration: {
-    baseURL: process.env.OPENAI_BASE_URL,
-  },
-})
-
-const client = new MilvusClient({
-  address: process.env.MILVUS_ADDRESS,
-  token: process.env.MILVUS_TOKEN,
-})
-
-// ===== RAG 核心函数 =====
-const getEmbedding = async (text) => {
-  const result = await embedding.embedQuery(text)
-  return result
-}
-
-const retrieveRelevantContent = async (question, k = 5) => {
-  const queryVector = await getEmbedding(question)
-  const searchResult = await client.search({
-    collection_name: COLLECTION_NAME,
-    vectors: [queryVector],
-    limit: k,
-    metric_type: MetricType.COSINE,
-    output_fields: ['id', 'content', 'book_id', 'chapter_num'],
-  })
-  return searchResult.results
-}
-
-const buildPrompt = (question, retrievedChunks) => {
-  const context = retrievedChunks
-    .map((item, i) =>
-      `[片段${i + 1}] 章节号:${item.chapter_num}, 内容:${item.content}`
-    )
-    .join('\n\n----\n\n')
-
-  return `你是一个专业的《吞噬星空》小说助手。
-基于小说回答问题，用准确、详细的语言。请根据以下小说片段内容回答问题：
-${context}
-
-用户问题：${question}
-
-回答要求：
-1. 如果片段中有相关信息，请结合小说内容给出详细准确的回答，如果没有请说不知道。
-2. 可以综合多个片段的内容，提供完整的答案。
-3. 如果片段中没有相关信息，请如实告知用户。
-4. 回答要准确，符合小说情节和人物设定。
-5. 可以引用原文内容来支持你的回答。
-
-ai助手的回答：`
-}
+app.use('/api/auth', authRoutes)
+app.use('/api/conversations', chatRoutes)
 
 // ===== API 路由 =====
-app.post('/api/chat', authMiddleware, async (req, res) => {////
+// /api/chat = 胶水层：只负责 HTTP 编排（鉴权 → 会话 → 调图 → 流式转发 → 落库）
+app.post('/api/chat', authMiddleware, async (req, res) => {
   let conversationId = null
-  let accumulatedText = '' // 累积完整回答，流结束后统一落库
+  let sourcesSent = false    // sources 事件是否已发送
+  let accumulatedText = ''   // 流式累积的完整回答
+  // 思考过程累积：随 think 事件同步收集，最后随 assistant 消息一起落库（历史回放可复现）
+  const thinkLines = []
+  let thinkFirstAt = 0       // 第一条思考的时间戳
+  let thinkLastAt = 0        // 最后一条思考的时间戳
+  let thinkSeconds = null    // 思考用时（秒）：首个正文 token 到达时定格
   try {
     const { question, conversationId: clientConvId } = req.body
     if (!question) {
@@ -126,55 +58,82 @@ app.post('/api/chat', authMiddleware, async (req, res) => {////
     // 先落库用户问题
     await appendMessage(conversationId, 'user', question, null)
 
-    const results = await retrieveRelevantContent(question, 5)
-    console.log('Search results count:', results?.length)
-    if (results && results.length > 0) {
-      console.log('First result content_len:', results[0].content.length)
-      console.log('First result preview:', results[0].content?.substring(0, 100))
-    }
-
-    // 检索来源（检索为空则为空数组，交给前端不显示来源区）
-    const sources = results && results.length > 0
-      ? results.map((item) => ({
-          chapter: item.chapter_num,
-          score: item.score.toFixed(4),
-          content: item.content,
-        }))
-      : []
-    const prompt = results && results.length > 0
-      ? buildPrompt(question, results)
-      : null
-
-    // 开启流式响应：先发一行 meta（conversationId + sources），再流式正文
+    // 开启流式响应：NDJSON 事件流协议——每行一个 JSON 事件（JSON.stringify 保证内部换行被转义，物理单行）
+    // 事件顺序：meta（会话）→ think…（思考步骤）→ sources（检索来源）→ token…（正文）→ done（总用时）
     res.setHeader('Content-Type', 'text/plain; charset=utf-8')
     res.setHeader('Cache-Control', 'no-cache')
     res.setHeader('X-Accel-Buffering', 'no') // 防止 Nginx 等网关缓存整段再给前端
     res.flushHeaders()
-    // 注意：这行 JSON 内不含真实换行（JSON.stringify 已把换行转义成 \n），前端按首个换行切分即可
-    res.write(JSON.stringify({ conversationId, sources }) + '\n')
 
-    // ===== 流式输出：每生成一点就推给前端 =====
-    if (!prompt) {
-      // 检索为空 → 流式给出兜底文案
-      accumulatedText = '抱歉，没有在《吞噬星空》中找到相关内容。'
-      res.write(accumulatedText)
-    } else {
-      const stream = await model.stream([new SystemMessage(prompt)])
-      for await (const chunk of stream) {
-        const text = typeof chunk.content === 'string'
-          ? chunk.content
-          : JSON.stringify(chunk.content)
-        if (text) {
-          accumulatedText += text
-          res.write(text)
+    const t0 = Date.now()
+    const send = (obj) => res.write(JSON.stringify(obj) + '\n')
+
+    // 先发 meta：前端立刻拿到会话 id 并创建消息容器（思考步骤随后源源不断推过来）
+    send({ type: 'meta', conversationId })
+
+    // ===== 胶水核心：把 HTTP 流式包装成事件 sink，注入 LangGraph 图执行 =====
+    // 图内节点通过 config.configurable.sink 回调推送思考步骤 / token / 来源（并发安全，不用全局变量）
+    const sink = {
+      onThink: (text) => {
+        const now = Date.now()
+        if (!thinkFirstAt) thinkFirstAt = now
+        thinkLastAt = now
+        thinkLines.push(text)
+        send({ type: 'think', text })
+      },
+      onToken: (text) => {
+        // 首个正文 token 到达 → 思考阶段结束，定格思考用时
+        if (thinkSeconds === null && thinkFirstAt) {
+          thinkSeconds = Number(((Date.now() - thinkFirstAt) / 1000).toFixed(1))
         }
-      }
+        accumulatedText += text
+        send({ type: 'token', text })
+      },
+      onSources: (sources) => {
+        sourcesSent = true
+        send({ type: 'sources', sources })
+      },
     }
+
+    // 跑完整 agentic RAG 图：路由 → 拆解 → 多跳检索 → 规划 → 生成
+    const result = await runAgenticRAG({
+      question,
+      k: 5,               // 每轮检索条数（与原 /api/chat 一致）
+      maxRetrievalCount: 3, // 多跳检索轮数上限
+      sink,
+    })
+
+    // 兜底：图执行完却没触发过 sources（极端情况）→ 用最终 state 补发，保证前端协议完整
+    if (!sourcesSent) {
+      send({
+        type: 'sources',
+        sources: (result.documents ?? []).map((d) => ({
+          chapter: d.chapter_num,
+          score: Number(d.score).toFixed(4),
+          content: d.content,
+        })),
+      })
+    }
+    // done 事件：总耗时（秒），前端用它收尾思考区
+    send({ type: 'done', elapsed: Number(((Date.now() - t0) / 1000).toFixed(1)) })
     res.end()
 
     // 流结束后才落库 AI 完整回答 + 来源（assistant 消息）
-    if (accumulatedText) {
-      await appendMessage(conversationId, 'assistant', accumulatedText, sources)
+    const sources = (result.documents ?? []).map((d) => ({
+      chapter: d.chapter_num,
+      score: Number(d.score).toFixed(4),
+      content: d.content,
+    }))
+    const answer = result.generation || accumulatedText
+    // 思考过程随消息落库：{ lines: [...], seconds } 结构（JSON 列）；兜底用首尾 think 时间差
+    const thinking = thinkLines.length
+      ? {
+          lines: thinkLines,
+          seconds: thinkSeconds ?? Number(((thinkLastAt - thinkFirstAt) / 1000).toFixed(1)),
+        }
+      : null
+    if (answer) {
+      await appendMessage(conversationId, 'assistant', answer, sources, thinking)
     }
   } catch (error) {
     console.error('API Error:', error)
@@ -182,7 +141,7 @@ app.post('/api/chat', authMiddleware, async (req, res) => {////
       // 还没开始推送就报错 → 返回 JSON 错误
       return res.status(500).json({ error: '服务器内部错误，请稍后再试' })
     }
-    // 已经开始流式推送 → 直接结束流
+    // 已经开始流式推送 → 直接结束流（前端靠已收到的半截内容兜底）
     res.end()
   }
 })
@@ -218,18 +177,10 @@ app.get('/api/images', (req, res) => {
 // ===== 启动 =====
 async function start() {
   try {
-    await client.connect()
-    console.log('Milvus 连接成功')
-
-    try {
-      await client.loadCollection({ collection_name: COLLECTION_NAME })
-      console.log('集合加载完成')
-    } catch (e) {
-      console.log('集合已在加载状态')
-    }
+    await initRagGraph() // Milvus 连接 + 集合加载（已抽到 ragGraph.mjs）
 
     app.listen(PORT, () => {
-      console.log(`\n吞噬星空 RAG 助手已启动！`)
+      console.log(`\n吞噬星空 RAG 助手已启动（Agentic RAG 图引擎）！`)
       console.log(`打开浏览器访问: http://localhost:${PORT}\n`)
     })
   } catch (error) {
@@ -239,6 +190,3 @@ async function start() {
 }
 
 start()
-
-
-
