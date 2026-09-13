@@ -23,12 +23,19 @@ export async function createConversation(userId, title) {
  * @param {string} role user / assistant
  * @param {string} content 消息内容
  * @param {Array|null} sources RAG 来源（assistant 消息才有）
+ * @param {Object|null} thinking 思考过程 { lines: [...], seconds }（assistant 消息才有）
  * @returns {Promise<Object>} 插入后的 { id }
  */
-export async function appendMessage(conversationId, role, content, sources = null) {
+export async function appendMessage(conversationId, role, content, sources = null, thinking = null) {
   const result = await query(
-    'INSERT INTO messages (conversation_id, role, content, sources) VALUES (?, ?, ?, ?)',
-    [conversationId, role, content, sources ? JSON.stringify(sources) : null]
+    'INSERT INTO messages (conversation_id, role, content, sources, thinking) VALUES (?, ?, ?, ?, ?)',
+    [
+      conversationId,
+      role,
+      content,
+      sources ? JSON.stringify(sources) : null,
+      thinking ? JSON.stringify(thinking) : null,
+    ]
   )
   return { id: result.insertId }
 }
@@ -64,16 +71,20 @@ export async function getConversation(conversationId, userId) {
 /**
  * 查询某会话的全部消息（按时间正序）
  * @param {number} conversationId
- * @returns {Promise<Array>} 消息列表（sources 已解析为对象）
+ * @returns {Promise<Array>} 消息列表（sources / thinking 已解析为对象）
  */
 export async function getMessages(conversationId) {
   const rows = await query(
-    'SELECT id, role, content, sources, create_time FROM messages WHERE conversation_id = ? ORDER BY create_time ASC, id ASC',
+    'SELECT id, role, content, sources, thinking, create_time FROM messages WHERE conversation_id = ? ORDER BY create_time ASC, id ASC',
     [conversationId]
   )
+  // JSON 列可能返回字符串（旧驱动行为）或对象，统一解析成对象
+  const parseJson = (v) =>
+    v ? (typeof v === 'string' ? JSON.parse(v) : v) : null
   return rows.map((m) => ({
     ...m,
-    sources: m.sources ? (typeof m.sources === 'string' ? JSON.parse(m.sources) : m.sources) : null,
+    sources: parseJson(m.sources),
+    thinking: parseJson(m.thinking),
   }))
 }
 

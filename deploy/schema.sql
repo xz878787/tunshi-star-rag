@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS messages (
   role VARCHAR(10) NOT NULL,               -- user / assistant
   content TEXT NOT NULL,
   sources JSON NULL,
+  thinking JSON NULL,                       -- 思考过程 { lines: [...], seconds }（assistant 消息才有）
   create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_conv (conversation_id, create_time)
 );
