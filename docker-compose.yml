@@ -1,4 +1,5 @@
 # ==================== 吞噬星空 RAG 助手 - 一键部署编排 ====================
+version: "3.8"   # 兼容服务器上的老版 docker-compose v1（v2 会提示过时但可忽略）
 # 用法：
 #   1. 在 docker-compose.yml 同级放置 .env（参照 .env.example 填写真实值）
 #   2. 导入 tsxkrag-app 镜像后启动：docker-compose up -d
