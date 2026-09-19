@@ -8,6 +8,7 @@
     "query": "node src/query.mjs",
     "rag": "node src/rag.mjs",
     "start": "node src/server.js",
+    "eval:project": "node eval/run-project-eval.mjs",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [

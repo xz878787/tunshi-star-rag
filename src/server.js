@@ -1,6 +1,6 @@
 // ragGraph.mjs 必须第一个导入：它内部按模块位置加载项目根的 .env，
 // 保证后续 db.js / jwt 等模块求值时环境变量已就绪（从任意目录启动均可）
-import { runAgenticRAG, initRagGraph } from './ragGraph.mjs'
+import { runAgenticRAG, initRagGraph, formatWebSources } from './ragGraph.mjs'
 import express from 'express'
 import authRoutes from './routes/auth.js'
 import chatRoutes from './routes/chat.js'
@@ -99,31 +99,38 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
     const result = await runAgenticRAG({
       question,
       k: 5,               // 每轮检索条数（与原 /api/chat 一致）
-      maxRetrievalCount: 3, // 多跳检索轮数上限
+      maxRetrievalCount: 5, // 多跳检索轮数上限（复杂问题结论层子问题常排前3位，5轮够用）
       sink,
     })
 
+    // 统一来源结构：库内片段 + 联网资料合并（webDocs 无 url 时 formatWebSources 返回空数组，兼容旧数据）
     // 兜底：图执行完却没触发过 sources（极端情况）→ 用最终 state 补发，保证前端协议完整
     if (!sourcesSent) {
       send({
         type: 'sources',
-        sources: (result.documents ?? []).map((d) => ({
-          chapter: d.chapter_num,
-          score: Number(d.score).toFixed(4),
-          content: d.content,
-        })),
+        sources: [
+          ...(result.documents ?? []).map((d) => ({
+            chapter: d.chapter_num,
+            score: Number(d.score).toFixed(4),
+            content: d.content,
+          })),
+          ...formatWebSources(result.webDocs),
+        ],
       })
     }
     // done 事件：总耗时（秒），前端用它收尾思考区
     send({ type: 'done', elapsed: Number(((Date.now() - t0) / 1000).toFixed(1)) })
     res.end()
 
-    // 流结束后才落库 AI 完整回答 + 来源（assistant 消息）
-    const sources = (result.documents ?? []).map((d) => ({
-      chapter: d.chapter_num,
-      score: Number(d.score).toFixed(4),
-      content: d.content,
-    }))
+    // 流结束后才落库 AI 完整回答 + 来源（assistant 消息）：库内片段 + 联网资料合并
+    const sources = [
+      ...(result.documents ?? []).map((d) => ({
+        chapter: d.chapter_num,
+        score: Number(d.score).toFixed(4),
+        content: d.content,
+      })),
+      ...formatWebSources(result.webDocs),
+    ]
     const answer = result.generation || accumulatedText
     // 思考过程随消息落库：{ lines: [...], seconds } 结构（JSON 列）；兜底用首尾 think 时间差
     const thinking = thinkLines.length

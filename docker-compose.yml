@@ -46,6 +46,8 @@ services:
       EMBEDDINGS_MODEL_NAME: ${EMBEDDINGS_MODEL_NAME}
       MILVUS_ADDRESS: ${MILVUS_ADDRESS}
       MILVUS_TOKEN: ${MILVUS_TOKEN}
+      BOCHA_API_KEY: ${BOCHA_API_KEY}       # 博查联网兜底：缺了会静默跳过联网
+      PLAN_MODEL_NAME: ${PLAN_MODEL_NAME}   # 规划/路由/拆解用小模型，缺了回落主模型（变慢变贵）
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN}
     depends_on:

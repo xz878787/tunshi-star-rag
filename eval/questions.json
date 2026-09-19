@@ -1,0 +1,22 @@
+[
+  { "id": 1, "question": "罗峰最初是如何发现自己具有精神念力的？", "goldChapters": [25], "answerKeywords": ["飞刀", "变向", "精神念力"], "minKeywordHits": 2 },
+  { "id": 2, "question": "金角巨兽为什么会被巴巴塔认为对地球极度危险？", "goldChapters": [246, 247, 248], "answerKeywords": ["恒星级", "巅峰血统", "星空巨兽"], "minKeywordHits": 2 },
+  { "id": 3, "question": "罗峰夺舍金角巨兽后，巴巴塔如何评价这次机遇？", "goldChapters": [270, 272], "answerKeywords": ["夺舍", "金角巨兽", "亿万年不遇"], "minKeywordHits": 2 },
+  { "id": 4, "question": "巴巴塔是谁，它与呼延博和罗峰分别是什么关系？", "goldChapters": [228, 231], "answerKeywords": ["智能生命", "呼延博", "罗峰", "辅助"], "minKeywordHits": 3 },
+  { "id": 5, "question": "陨墨星号飞船内的尸体和呼延博的经历说明了什么？", "goldChapters": [230, 231], "answerKeywords": ["陨墨星号", "不朽", "呼延博", "追杀"], "minKeywordHits": 3 },
+  { "id": 6, "question": "虚拟宇宙公司为什么在宇宙中地位特殊？", "goldChapters": [292, 293], "answerKeywords": ["虚拟宇宙", "技术", "宇宙国", "不泄露"], "minKeywordHits": 2 },
+  { "id": 7, "question": "混沌城主在混沌城对两名不朽神灵出手时展现了怎样的控制力？", "goldChapters": [658, 728], "answerKeywords": ["空间", "静止", "战斗力", "不朽神灵"], "minKeywordHits": 3 },
+  { "id": 8, "question": "罗峰为了保住地球，如何利用黑龙山帝国的所有权规则对付诺岚山家族？", "goldChapters": [309, 312, 318], "answerKeywords": ["黑龙山帝国", "地球所有权", "诺岚山", "星盗"], "minKeywordHits": 3 },
+  { "id": 9, "question": "星辰塔为什么吸引域外战场的封王强者？", "goldChapters": [825, 826, 830, 836], "answerKeywords": ["危险", "机遇", "封王", "域外战场"], "minKeywordHits": 2 },
+  { "id": 10, "question": "坐山客是谁，他与罗峰、焱帝是什么关系？", "goldChapters": [909, 907], "answerKeywords": ["老师", "罗峰", "焱帝", "宇宙最强者"], "minKeywordHits": 3 },
+  { "id": 11, "question": "《九劫秘典》的作用是什么，为什么它被说成违背宇宙运转法则？", "goldChapters": [900, 901, 905, 907], "answerKeywords": ["基因", "提升", "宇宙运转法则", "坐山客"], "minKeywordHits": 3 },
+  { "id": 12, "question": "血洛世界任务要求罗峰完成哪两个目标？", "goldChapters": [505], "answerKeywords": ["血洛晶", "血武者", "血洛勋章", "积分"], "minKeywordHits": 3 },
+  { "id": 13, "question": "魔音神将传承分为几个阶段，完成第一阶段会得到什么？", "goldChapters": [593, 595], "answerKeywords": ["三个阶段", "第一阶段", "初选者", "奖励"], "minKeywordHits": 3 },
+  { "id": 14, "question": "呼延博在陨墨星一脉中给罗峰留下了哪些重要传承？", "goldChapters": [207, 228, 231, 232], "answerKeywords": ["呼延博", "遁天梭", "巴巴塔", "陨墨星"], "minKeywordHits": 3 },
+  { "id": 15, "question": "罗峰与徐欣早期是如何认识的，罗峰为什么没有马上追求她？", "goldChapters": [6, 7], "answerKeywords": ["高一", "同班", "暗恋", "改变家庭命运"], "minKeywordHits": 3 },
+  { "id": 16, "question": "罗峰的两个儿子叫什么，他们曾如何借助虚拟游戏学习？", "goldChapters": [303, 332], "answerKeywords": ["罗平", "罗海", "虚拟游戏", "辅助教学"], "minKeywordHits": 3 },
+  { "id": 17, "question": "洪和雷神分别与哪个武馆有关，他们在地球强者中处于什么位置？", "goldChapters": [99, 208, 211], "answerKeywords": ["极限武馆", "雷电武馆", "第一强者", "第二强者"], "minKeywordHits": 3 },
+  { "id": 18, "question": "罗峰成为武者时为什么选择加入极限武馆？", "goldChapters": [9, 10], "answerKeywords": ["洪", "第一强者", "管理宽松", "自由"], "minKeywordHits": 2 },
+  { "id": 19, "question": "摩云藤对洪和罗峰分别有什么价值？", "goldChapters": [169, 171, 173, 232], "answerKeywords": ["摩云藤", "洪", "罗峰", "宝物"], "minKeywordHits": 3 },
+  { "id": 20, "question": "罗峰在域外战场和后续冒险中为什么需要隐藏身份和实力？", "goldChapters": [825, 830, 836], "answerKeywords": ["域外战场", "异族", "封王", "身份"], "minKeywordHits": 2 }
+]
