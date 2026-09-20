@@ -88,6 +88,7 @@ export async function retrieveRelevantContent(question, k = TOP_K) {
 // ===== 图状态定义 =====
 const GraphState = Annotation.Root({
   question: Annotation,          // 用户原始问题
+  conversationContext: Annotation, // 有界的持久化短期记忆，用于指代消解
   k: Annotation,                 // 每轮检索条数
   strategy: Annotation,          // 路由结果：simple / complex
   routeReason: Annotation,       // 路由理由
@@ -156,6 +157,9 @@ const routeQuestionNode = async (state, config) => {
   - complex: 需要《吞噬星空》具体情节、人物关系、章节事实、原文细节或证据支持。
   - web: 与《吞噬星空》小说情节无关的库外资讯——作者动态、动画/电视剧更新、跨作品比较、现实资讯等，知识库不可能有答案，需要联网搜索。
 
+  最近对话上下文（仅用于理解指代，不可作为小说事实依据）：
+  ${state.conversationContext || '（无）'}
+
   用户问题：${state.question}
   `)
   console.log(`路由策略：${route.strategy} ${route.reason}`)
@@ -186,7 +190,9 @@ const directAnswerNode = async (state, config) => {
   console.log('----DIRECT_ANSWER----')
   const sink = config?.configurable?.sink // HTTP 层注入的流式回调
   let generation = ''
-  const stream = await model.stream(`你是一个中文回答助手, 请简洁回答问题。
+  const stream = await model.stream(`你是一个中文回答助手，请简洁回答问题。
+最近对话上下文（仅用于理解指代）：
+${state.conversationContext || '（无）'}
 问题：${state.question}`)
   for await (const chunk of stream) {
     const text = typeof chunk.content === 'string' ? chunk.content : ''
@@ -205,6 +211,9 @@ const decomposeQuestionNode = async (state, config) => {
     你是《吞噬星空》多跳问答的【子问题拆解器】。
     用户原始问题：
     ${state.question}
+
+    最近对话上下文（仅用于消解指代，不要把它当作小说事实）：
+    ${state.conversationContext || '（无）'}
 
     任务：将问题拆成**有序**子问题列表 sub_questions, 用于**依次向量检索**。要求：
     1. 链式推理、多层关系、因果先后的问题，必须拆成多条；单跳即可答的也可只输出1条。
@@ -315,6 +324,8 @@ const planNextStepNode = async (state, config) => {
   const prompt = `你是多跳 RAG 规划器。检索查询已由前置步骤拆解为**有序子问题**。
 若需要继续检索，下一轮将自动使用 [下一条子问题] 做向量检索，你**不要**自拟新的检索句。
 用户原始问题：${state.question}
+最近对话上下文（仅用于理解指代）：
+${state.conversationContext || '（无）'}
 子问题序列：
 ${subList || '无'}
 
@@ -413,6 +424,8 @@ URL: ${item.url}
 ${contextBlock}
 
 用户问题：${state.question}
+最近对话上下文（仅用于理解指代，不作为事实依据）：
+${state.conversationContext || '（无）'}
 
 回答要求：
 1. 优先综合多个片段回答问题；只有片段与问题**完全无关**时才告知无法回答。
@@ -574,10 +587,11 @@ const graph = new StateGraph(GraphState)
  * @param {Object} [opts.sink] 流式回调 { onThink(text), onToken(text), onSources(sources) }，由 HTTP 层注入
  * @returns {Promise<Object>} 最终状态（含 generation / documents / strategy 等）
  */
-export async function runAgenticRAG({ question, k = TOP_K, maxRetrievalCount = 3, sink }) {
+export async function runAgenticRAG({ question, k = TOP_K, maxRetrievalCount = 3, conversationContext = '', sink }) {
   return graph.invoke(
     {
       question,
+      conversationContext,
       k,
       maxRetrievalCount,
       strategy: '',

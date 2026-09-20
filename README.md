@@ -1,396 +1,435 @@
-# 吞噬星空 RAG 智能问答助手
+# 基于 LangGraph 与 Milvus 的 Agentic RAG 全栈系统
 
-<img width="2560" height="1600" alt="image" src="https://github.com/user-attachments/assets/b8329973-280d-417e-91cf-8371acb48aa3" />
+> 面向《吞噬星空》全集的智能问答应用。系统完成了从 EPUB 解析、文本切片、向量化入库，到问题路由、多跳检索、联网兜底、流式生成、来源展示和会话持久化的完整链路。
 
+![项目界面](https://github.com/user-attachments/assets/b8329973-280d-417e-91cf-8371acb48aa3)
 
+## 项目概览
 
-> 一个基于 **RAG（检索增强生成）** 的《吞噬星空》小说智能问答系统：把 1363 章 EPUB 小说切块、向量化存入 Milvus，用户提问时先向量检索原文片段，再交给大模型结合片段生成**带引用来源、流式逐字输出**的回答，并支持**多用户、多会话、历史记录**的完整 Web 应用。
+这不是一次“检索 Top-K 后直接调用模型”的线性问答。当前 Web 主链路由 LangGraph 编排，会先判断问题类型，再按场景选择直接回答、复杂问题拆解或联网搜索：
 
-**一句话亮点**：不是"套壳的聊天机器人"，而是一条**数据摄入 → 向量检索 → 大模型生成**完整打通的 RAG 工程链路，并覆盖了 Web 应用该有的**鉴权、数据隔离、流式传输、事务一致性**等真实工程能力。
+- **简单问题**：无需小说证据时直接流式回答；
+- **小说事实问题**：拆成可独立检索的子问题，循环执行向量检索与下一步规划；
+- **库外资讯问题**：调用博查 Web Search 获取资料后生成答案；
+- **本地证据不足**：最近一轮最高相似度低于阈值时自动联网兜底；
+- **连续对话**：从 MySQL 读取有限条历史消息用于指代消解，不把完整会话无限塞入上下文；
+- **流式交互**：通过 POST + NDJSON 依次推送状态、来源、正文 Token 和完成事件。
 
----
+### 核心能力
 
-## 一、系统架构
+| 能力 | 当前实现 |
+|---|---|
+| 文档摄入 | EPUB 按章节解析，递归字符切片，生成 1024 维向量 |
+| 向量检索 | Milvus `IVF_FLAT` 索引，`COSINE` 相似度，每轮 Top-5 |
+| Agent 编排 | LangGraph 条件路由、问题拆解、多跳检索、动态规划 |
+| 外部搜索 | 博查 Web Search；缺少密钥或请求失败时可降级 |
+| 模型接入 | OpenAI-compatible API，默认面向阿里云百炼 DashScope |
+| 流式协议 | POST + `fetch` ReadableStream + NDJSON 事件流 |
+| 业务能力 | JWT 鉴权、多用户隔离、多会话、历史消息、来源与思考过程落库 |
+| 工程部署 | Docker Compose 编排 Node、MySQL 与 Nginx |
+| 基础评测 | 固定 20 题，统计 Top-5 章节命中、关键词正确率与 TTFT |
 
+## 系统架构
+
+```mermaid
+flowchart TB
+    U[浏览器<br/>HTML / CSS / JavaScript] -->|JWT + POST /api/chat| API[Express 5 API]
+    API --> MEM[(MySQL<br/>用户 / 会话 / 消息 / 有界对话记忆)]
+    API -->|question + context + sink| GRAPH[LangGraph Agentic RAG]
+
+    GRAPH --> ROUTE{问题路由}
+    ROUTE -->|simple| DIRECT[直接流式回答]
+    ROUTE -->|complex| DECOMPOSE[问题拆解]
+    ROUTE -->|web| WEB[博查 Web Search]
+
+    DECOMPOSE --> RETRIEVE[Embedding + Milvus Top-K]
+    RETRIEVE --> PLAN{下一步规划}
+    PLAN -->|继续检索| RETRIEVE
+    PLAN -->|证据充分| GENERATE[RAG 生成]
+    PLAN -->|证据不足| WEB
+    WEB --> GENERATE
+
+    RETRIEVE --> VDB[(Milvus / Zilliz Cloud<br/>ebook8 / COSINE / 1024维)]
+    DIRECT --> LLM[DashScope<br/>生成模型]
+    GENERATE --> LLM
+    RETRIEVE --> EMB[DashScope<br/>text-embedding-v3]
+
+    DIRECT -->|token| API
+    GENERATE -->|sources + token| API
+    API -->|NDJSON: meta / think / sources / token / done| U
 ```
-┌────────────────────────────────────────────────────────────┐
-│                        浏览器（前端）                        │
-│  原生 HTML + CSS + JS（无构建工具）                          │
-│  登录/注册 · 历史会话侧边栏 · 流式打字机渲染 · 来源折叠 · 音乐  │
-└───────────────────────────┬────────────────────────────────┘
-                            │ HTTP / JSON / 流式
-┌───────────────────────────▼────────────────────────────────┐
-│                    Express 后端（server.js）                │
-│  路由层：/api/auth  /api/conversations  /api/chat           │
-│  中间件：JWT 鉴权（authMiddleware）                          │
-│  模型层：userModel / chatModel（数据访问层）                  │
-└───────────┬─────────────────────────────┬──────────────────┘
-            │                             │
-   ┌────────▼────────┐          ┌─────────▼─────────┐
-   │    MySQL        │          │  Milvus (Zilliz)  │
-   │ 业务数据（落库）  │          │  向量库（检索）    │
-   │ sys_user        │          │  ebook8 集合      │
-   │ conversations   │          │  IVF_FLAT / COSINE│
-   │ messages        │          │  1024 维向量      │
-   └─────────────────┘          └───────────────────┘
-            │                             ▲
-            └───────────┬─────────────────┘
-                        │
-          ┌─────────────▼──────────────┐
-          │  DashScope（阿里云百炼）      │
-          │  生成模型：qwen-plus         │
-          │  向量模型：text-embedding-v3 │
-          └─────────────────────────────┘
+
+### Agentic RAG 状态流
+
+```text
+START
+  └─ route_question
+       ├─ simple  ────────────────> direct_answer ─────────────> END
+       ├─ web     ────────────────> web_search ─> rag_generate > END
+       └─ complex -> decompose_question
+                         └─ retrieve <──> plan_next_step
+                               ├─ 本地证据充分 ─> rag_generate > END
+                               └─ 低分/需要库外信息 ─> web_search
+                                                    └─ rag_generate > END
 ```
 
-**核心分工（面试必答）**：
-- **MySQL** 存**业务数据**：用户、会话、消息（问答记录）
-- **Milvus** 存**知识数据**：小说原文的向量索引（语义检索）
-- 两者职责不同：一个是"记对话"，一个是"找知识"
-
----
-
-## 二、技术栈
+## 技术栈
 
 | 分类 | 技术 | 用途 |
-|------|------|------|
-| 后端框架 | Node.js + Express 5 | Web 服务、RESTful API |
-| 数据库 | MySQL 8（mysql2/promise） | 用户/会话/消息持久化 |
-| 向量数据库 | Milvus（Zilliz Cloud，@zilliz/milvus2-sdk-node） | 原文切块向量存储与相似度检索 |
-| 大模型 | DashScope qwen-plus（OpenAI 兼容接口） | 问答生成 |
-| 向量模型 | text-embedding-v3（1024 维） | 文本向量化 |
-| RAG 工具链 | LangChain（loaders / textSplitters / openai） | EPUB 解析、文本切分、模型封装 |
-| 鉴权 | JWT（jsonwebtoken）+ bcrypt | 登录态与密码加密 |
-| 书籍解析 | EPubLoader + html-to-text | EPUB 转纯文本 |
-| 前端 | 原生 HTML + CSS + JS + marked.js | 页面、Markdown 渲染 |
-| 部署 |阿里云服务器部署 | 线上运行 |
+|---|---|---|
+| 运行时与后端 | Node.js 20、Express 5、ES Modules | API、静态资源、流式响应 |
+| RAG 编排 | LangGraph、LangChain | 状态图、模型封装、文档加载与切片 |
+| 结构化输出 | Zod | 路由、问题拆解和规划结果校验 |
+| 向量数据库 | Milvus / Zilliz Cloud | 原文向量存储与相似度检索 |
+| 生成与向量模型 | DashScope OpenAI-compatible API | 回答生成、文本向量化 |
+| 联网搜索 | 博查 Web Search API | 库外资讯与低置信度兜底 |
+| 业务数据库 | MySQL 8、mysql2/promise | 用户、会话、消息与思考过程 |
+| 鉴权 | JWT、bcrypt | 登录态、密码哈希和接口保护 |
+| 前端 | 原生 HTML、CSS、JavaScript、marked.js | 流式渲染、来源展示和会话管理 |
+| 部署 | Docker、Docker Compose、Nginx | 容器编排、反向代理与关闭流缓冲 |
 
----
+## 核心设计
 
-## 三、实现的功能
+### 1. 数据摄入
 
-### 3.1 数据摄入管道（`npm run ingest`）
-- EPUB 小说按章节解析 → 跳过插图短页（`<100` 字符）
-- `RecursiveCharacterTextSplitter` 切块：`chunkSize=500`、`overlap=50`（上下文连贯）
-- 逐条 embedding 后写入 Milvus `ebook8` 集合（IVF_FLAT 索引、COSINE 度量）
-- **逐条串行处理**，规避 DashScope 免费版 QPS 限流
+`src/main.mjs` 负责构建知识库：
 
-### 3.2 RAG 问答（`npm run rag`，CLI 版）
-- 提问 → 向量化 → Milvus 检索 top-k → 拼 prompt → LLM 回答
-- 打印每条命中的**章节号 + 相似度分数 + 原文**，链路透明可验证
-
-### 3.3 Web 智能问答助手（`npm start`）
-- **用户系统**：注册 / 登录（bcrypt 加密、JWT 鉴权、防用户名枚举）
-- **多会话管理**：自动建会话、历史会话列表、点击切换、删除
-- **RAG 检索 + 来源展示**：回答附带命中的章节号、相似度、原文片段（可折叠展开）
-- **流式输出**：回答像 ChatGPT 一样逐字浮现（打字机效果），而非转圈等待
-- **多用户数据隔离**：每个用户只能看到/操作自己的会话（`WHERE id AND user_id`）
-- **历史侧边栏**：可折叠、localStorage 记住状态
-- **氛围功能**：全图背景、透明 UI、背景图轮播、音乐播放（`bgm.mp3`）
-
----
-
-## 四、快速开始
-
-### 1. 配置环境变量（`.env`，参照 `.env.example`）
+```text
+EPUB
+  -> 按章节解析
+  -> 清洗并跳过过短内容
+  -> RecursiveCharacterTextSplitter
+       chunkSize = 500
+       chunkOverlap = 50
+  -> text-embedding-v3（1024维）
+  -> Milvus ebook8
+       IVF_FLAT + COSINE
 ```
-# 大模型（DashScope 阿里云百炼）
+
+Embedding 当前采用串行调用，以降低第三方接口 QPS 限制导致的失败概率。`chunkSize`、overlap、Top-K 和索引参数是当前实验配置，并非对所有语料都适用的固定最优值。
+
+### 2. 问题路由与多跳检索
+
+路由模型使用 Zod 约束结构化输出，将问题分为：
+
+- `simple`：寒暄、通用交流等无需检索的问题；
+- `complex`：人物关系、情节、因果、章节事实等需要小说证据的问题；
+- `web`：作者动态、动画更新、现实资讯等知识库外问题。
+
+复杂问题会被拆成 1～8 个不含模糊指代的独立子问题。系统逐个检索、按文档 ID 去重并保留更高分结果，再由规划节点决定继续检索、联网搜索还是进入生成。Web 接口将单次最大检索轮数设为 5，避免无界循环和成本失控。
+
+### 3. 有界会话记忆
+
+每轮请求在写入当前问题前读取最近 8 条历史消息，并限制单条注入长度。该上下文只用于理解“他”“这个功法”等指代，不作为小说事实依据；事实仍应由 Milvus 检索片段或联网资料支撑。
+
+这个设计避免了两个问题：
+
+1. 完整历史无限增长导致上下文和调用成本失控；
+2. 把模型上一轮回答误当成可靠知识来源，放大历史幻觉。
+
+### 4. 本地检索与联网兜底
+
+本地检索使用查询向量在 Milvus 中执行 COSINE 搜索。每轮默认返回 5 个片段，多轮结果按 ID 合并。
+
+当子问题已经处理完、达到检索预算，且最近一轮最高分低于当前经验阈值 `0.55` 时，系统转向 Web Search。该阈值目前是工程经验值，后续应结合验证集上的正负样本分数分布继续校准。
+
+联网搜索失败不会让整条问答链路崩溃：若已有本地资料则继续基于本地证据回答；两类资料都为空时返回明确的无结果提示。
+
+### 5. 流式事件协议
+
+当前实现是 **NDJSON 事件流，不是浏览器 `EventSource` 标准 SSE**。
+
+后端保持 HTTP 响应打开，每个事件写成一行 JSON：
+
+```json
+{"type":"meta","conversationId":123}
+{"type":"think","text":"正在拆解复杂问题"}
+{"type":"sources","sources":[]}
+{"type":"token","text":"罗峰"}
+{"type":"done","elapsed":5.2}
+```
+
+事件顺序为：
+
+```text
+meta -> think* -> sources -> token* -> done
+```
+
+前端使用 `fetch()`、`ReadableStream`、`TextDecoder` 和换行缓冲逐条解析。选择这种方案是因为问答接口需要 POST 请求体和 Authorization Header；如果改为标准 SSE，则需要使用 `text/event-stream` 和 `data: ...\n\n` 帧格式，或调整连接与鉴权设计。
+
+为避免代理层把整段内容缓冲后一次返回，后端设置 `X-Accel-Buffering: no`，Nginx 同时关闭 `proxy_buffering` 与缓存。
+
+### 6. 并发安全与数据落库
+
+HTTP 层把以下回调组成请求级 `sink`，通过 LangGraph 的 `configurable` 注入图执行：
+
+```js
+{
+  onThink(text),
+  onSources(sources),
+  onToken(text)
+}
+```
+
+图节点不依赖全局变量，因此不同请求的流式事件不会共享同一个输出状态。回答结束后，系统把用户问题、完整回答、来源以及 `{ lines, seconds }` 形式的思考过程保存到 MySQL。
+
+### 7. 鉴权与数据隔离
+
+- 密码使用 bcrypt 哈希，不保存明文；
+- JWT 从 `Authorization: Bearer <token>` 读取；
+- 用户 ID 只取自服务端验证后的 Token，不信任前端提交值；
+- 会话查询与删除同时校验 `conversation_id` 和 `user_id`；
+- 数据库查询使用参数化语句；
+- 删除会话与关联消息使用同一数据库连接和事务。
+
+## 快速开始
+
+### 前置条件
+
+- Node.js 20+
+- pnpm（仓库已包含 `pnpm-lock.yaml`）
+- MySQL 8
+- Milvus 或 Zilliz Cloud 集群
+- 支持 OpenAI-compatible API 的生成与 Embedding 服务
+- 可选：博查 Web Search API Key
+
+### 1. 安装依赖
+
+```bash
+pnpm install
+```
+
+### 2. 配置环境变量
+
+复制 `.env.example` 为 `.env`，并填写真实值。不要提交 `.env`。
+
+```dotenv
+# 生成模型与 Embedding
 MODEL_NAME=qwen-plus
-OPENAI_API_KEY=sk-你的_DashScope_API_Key
+PLAN_MODEL_NAME=qwen-plus
+OPENAI_API_KEY=your_dashscope_api_key
 OPENAI_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 EMBEDDINGS_MODEL_NAME=text-embedding-v3
 
-# 向量库（Zilliz Cloud）
-MILVUS_ADDRESS=https://你的集群地址...zilliz.com.cn
-MILVUS_TOKEN=你的_Zilliz_Token
+# Milvus / Zilliz Cloud
+MILVUS_ADDRESS=https://your-cluster-address
+MILVUS_TOKEN=your_milvus_token
 
-# MySQL
+# MySQL；本机端口按实际环境填写
 DB_HOST=127.0.0.1
 DB_PORT=3307
 DB_USER=root
-DB_PASSWORD=你的_MySQL_密码
+DB_PASSWORD=your_mysql_password
 DB_NAME=rag_system
 
-# JWT
-JWT_SECRET=你的_JWT_密钥
+# 鉴权
+JWT_SECRET=replace_with_a_long_random_secret
 JWT_EXPIRES_IN=2h
+
+# 可选；未配置时无法使用联网搜索
+BOCHA_API_KEY=your_bocha_api_key
+
+# 可选
+PORT=3000
 ```
 
-### 2. 建表（MySQL）
-```sql
-CREATE TABLE sys_user (
-  id BIGINT AUTO_INCREMENT PRIMARY KEY,
-  username VARCHAR(50) NOT NULL UNIQUE,
-  password VARCHAR(100) NOT NULL,          -- bcrypt 哈希
-  nickname VARCHAR(30),
-  role VARCHAR(20) DEFAULT 'user',
-  create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
-  update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
+`PLAN_MODEL_NAME` 未配置时复用 `MODEL_NAME`。生产环境必须使用高强度随机 `JWT_SECRET`。
 
-CREATE TABLE conversations (
-  id BIGINT AUTO_INCREMENT PRIMARY KEY,
-  user_id BIGINT NOT NULL,
-  title VARCHAR(100),
-  create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
-  update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  INDEX idx_user (user_id, update_time)
-);
+### 3. 初始化 MySQL
 
-CREATE TABLE messages (
-  id BIGINT AUTO_INCREMENT PRIMARY KEY,
-  conversation_id BIGINT NOT NULL,
-  role VARCHAR(10) NOT NULL,               -- user / assistant
-  content TEXT NOT NULL,
-  sources JSON NULL,
-  create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
-  INDEX idx_conv (conversation_id, create_time)
-);
-```
+建表脚本位于 `deploy/schema.sql`。核心表包括：
 
-### 3. 安装与运行
+- `sys_user`：账号、密码哈希、昵称与角色；
+- `conversations`：用户会话；
+- `messages`：用户/助手消息、来源 JSON 和思考过程 JSON。
+
+使用 Docker Compose 首次创建空数据卷时，MySQL 会自动执行该脚本；已有数据卷不会重复执行初始化脚本。
+
+### 4. 构建向量知识库
+
 ```bash
-npm install
-npm run ingest   # ① 摄入小说数据到 Milvus（首次）
-npm start        # ② 启动 Web 服务，浏览器访问 http://localhost:3000
+pnpm ingest
 ```
 
----
+该命令会读取仓库根目录中的 EPUB，创建并写入 Milvus 集合。首次运行时间取决于文本规模、Embedding 限流和网络状况；重复执行前请先确认集合处理策略，避免重复数据。
 
-## 五、项目结构
+### 5. 启动 Web 应用
 
+```bash
+pnpm start
 ```
+
+浏览器访问：<http://localhost:3000>
+
+### 6. 可选命令
+
+```bash
+pnpm query         # 验证向量检索
+pnpm rag           # 运行旧版 CLI RAG 示例
+pnpm eval:project  # 运行固定 20 题评测，会调用真实模型与向量库
+```
+
+`src/query.mjs` 和 `src/rag.mjs` 是独立 CLI 验证脚本；Web 主链路以 `src/server.js` 和 `src/ragGraph.mjs` 为准。
+
+## API 与事件
+
+### 主要接口
+
+| 方法 | 路径 | 鉴权 | 用途 |
+|---|---|:---:|---|
+| POST | `/api/auth/register` | 否 | 注册 |
+| POST | `/api/auth/login` | 否 | 登录并获取 JWT |
+| GET | `/api/auth/profile` | 是 | 获取当前用户 |
+| POST | `/api/conversations` | 是 | 创建会话 |
+| GET | `/api/conversations` | 是 | 获取会话列表 |
+| GET | `/api/conversations/:id` | 是 | 获取会话及消息 |
+| DELETE | `/api/conversations/:id` | 是 | 删除会话与消息 |
+| POST | `/api/chat` | 是 | 执行 Agentic RAG 并返回 NDJSON 流 |
+
+### `/api/chat` 请求示例
+
+```http
+POST /api/chat HTTP/1.1
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "question": "罗峰为什么选择加入极限武馆？",
+  "conversationId": 12
+}
+```
+
+首次提问可以省略 `conversationId`，服务端会自动创建会话并通过 `meta` 事件返回 ID。
+
+## 评测
+
+仓库提供一个轻量级、可重复执行的 20 题评测集：
+
+- **Top-5 检索命中**：直接检索返回的章节中，至少一个命中人工标注章节；
+- **回答正确**：回答命中题目配置的最少关键词数；
+- **TTFT**：从启动 `runAgenticRAG` 到收到首个 `onToken` 的时间。
+
+最近一次已保存结果（2026-09-19）：
+
+| 指标 | 结果 |
+|---|---:|
+| 评测问题数 | 20 |
+| Top-5 章节命中 | 13/20（65%） |
+| 关键词规则正确 | 19/20（95%） |
+| 平均首 Token 时间 | 5336 ms |
+
+完整明细见 `eval/results/project-data-table.md`。
+
+> 注意：关键词命中不等同于人工语义正确率，Top-5 章节命中也只评估首次直接检索，不完全覆盖多跳检索对最终答案的贡献。这套评测用于建立可比较的工程基线，不应被解释为严格的学术评测结果。
+
+评测结果暴露出的主要问题是：答案可能借助非标注章节回答正确，但初始 Top-5 对目标章节的召回仍不稳定。后续优先方向是混合检索、扩大初召回后重排，以及更可靠的忠实度/引用一致性评估。
+
+## 项目结构
+
+```text
 tsxkRAG/
-├── src/
-│   ├── main.mjs          # 数据摄入：EPUB → 切块 → 向量化 → 入库
-│   ├── query.mjs         # 向量检索验证脚本
-│   ├── rag.mjs           # RAG 问答 CLI（检索 + 生成）
-│   ├── server.js         # Web 主服务（含流式 /api/chat）
-│   ├── middleware/auth.js# JWT 鉴权中间件
-│   ├── routes/
-│   │   ├── auth.js       # 登录 / 注册 / 个人信息
-│   │   └── chat.js       # 会话 CRUD
-│   ├── models/
-│   │   ├── db.js         # MySQL 连接池 + 参数化查询封装
-│   │   ├── userModel.js  # 用户表操作
-│   │   └── chatModel.js  # 会话/消息表操作（含事务）
-│   └── utils/jwt.js      # JWT 签发/校验封装
-├── public/
-│   ├── index.html        # 单页前端（登录/会话/流式/音乐/背景）
-│   └── assets/           # 音频、图片
-├── .env.example          # 环境变量模板
-└── package.json
+├─ src/
+│  ├─ main.mjs                 # EPUB 摄入、切片、Embedding、Milvus 建库
+│  ├─ query.mjs                # 向量检索验证脚本
+│  ├─ rag.mjs                  # 旧版线性 RAG CLI 示例
+│  ├─ ragGraph.mjs             # Agentic RAG 状态、节点、条件边与对外入口
+│  ├─ server.js                # Express 主入口与 /api/chat NDJSON 流
+│  ├─ middleware/auth.js       # JWT 鉴权
+│  ├─ routes/
+│  │  ├─ auth.js               # 注册、登录、个人信息
+│  │  └─ chat.js               # 会话 CRUD 与历史消息
+│  ├─ models/
+│  │  ├─ db.js                 # MySQL 连接池与查询封装
+│  │  ├─ userModel.js          # 用户数据访问
+│  │  └─ chatModel.js          # 会话、消息、事务与最近对话记忆
+│  └─ utils/jwt.js             # JWT 签发与校验
+├─ public/
+│  ├─ index.html               # 单页应用入口
+│  ├─ js/                      # 鉴权、会话、流式协议、来源渲染等模块
+│  └─ assets/                  # 图片、视频与音频资源
+├─ eval/
+│  ├─ questions.json           # 固定 20 题及人工标注
+│  ├─ run-project-eval.mjs     # 评测执行与报告生成
+│  └─ results/                 # JSON 原始结果与 Markdown 数据表
+├─ deploy/
+│  ├─ schema.sql               # MySQL 初始化脚本
+│  └─ nginx.conf               # Nginx 反向代理与流式配置
+├─ Dockerfile
+├─ docker-compose.yml
+├─ .env.example
+└─ package.json
 ```
 
----
+## Docker Compose 部署
 
-## 六、核心实现讲解（面试重点）
+当前编排包含三个服务：
 
-### 6.1 RAG 检索 → 生成链路（server.js）
-```js
-// ① 用户问题向量化
-const queryVector = await getEmbedding(question)
-// ② Milvus 向量检索 top-5，COSINE 相似度
-const searchResult = await client.search({
-  collection_name: COLLECTION_NAME,
-  vectors: [queryVector],
-  limit: k,
-  metric_type: MetricType.COSINE,
-  output_fields: ['id', 'content', 'book_id', 'chapter_num'],
-})
-// ③ 检索片段拼进 prompt
-const prompt = buildPrompt(question, results)
-// ④ 大模型流式生成
-const stream = await model.stream([new SystemMessage(prompt)])
+```text
+Browser -> Nginx :80 -> Node/Express :3000 -> MySQL :3306
+                              ├────────────> Milvus / Zilliz Cloud
+                              └────────────> DashScope / Web Search
 ```
 
-### 6.2 流式输出（打字机效果）
-- **后端**：`model.stream()` 逐 chunk `res.write()`；先发一行 `meta JSON`（`{conversationId, sources}`），再流式正文
-- **前端**：`fetch` + `res.body.getReader()` + `TextDecoder('utf-8')` 边读边用 `marked.parse` 渲染
-- **三个关键点**：
-  1. `TextDecoder` 解决中文被拆到两个 chunk 时乱码
-  2. `X-Accel-Buffering: no` 防止 Nginx 等网关缓冲导致"不流式"
-  3. meta 行先发，让前端**先渲染检索来源**、再流式填正文，来源不丢失
-
-### 6.3 数据隔离与越权防护
-- `getConversation(id, userId)` 使用 `WHERE id = ? AND user_id = ?`
-- 所有会话接口（查看/删除/续聊）都带 `authMiddleware`，`userId` 取自 JWT（**不信前端传**）
-- 越权访问直接返回 404/403
-
-### 6.4 事务保证删除一致性
-删除会话时先删 `messages` 再删 `conversations`，用 `pool.getConnection()` 拿到**同一连接**手动开启事务，失败回滚，避免"会话删了消息残留"。
-
-### 6.5 安全实践
-- 密码 **bcrypt 哈希**（成本因子 10），不存明文
-- 全程 **参数化查询**（`?` 占位符），防 SQL 注入
-- "用户不存在"与"密码错误"返回**同一提示**，防用户名枚举
-- `JWT_SECRET` 走环境变量，不硬编码；token 载荷剔除密码字段
-- 前端渲染用 `textContent` 而非 `innerHTML`，防 XSS
-
----
-
-## 七、遇到的问题与优化思路
-
-| # | 问题 | 优化思路 / 做法 |
-|---|------|----------------|
-| 1 | 回答一次性输出，等很久、体验差 | 改为**流式输出**（打字机），首字秒出 |
-| 2 | 流式改造后检索来源（章节/分数/原文）会丢 | **meta 行先发** sources，前端先渲染来源区再流式正文 |
-| 3 | 中文跨 chunk 被切断出现乱码 | `TextDecoder('utf-8', { stream: true })` 自动拼接 |
-| 4 | 接入网关（Nginx）后流式失效 | 加 `X-Accel-Buffering: no` |
-| 5 | 登录硬编码，无法注册、无法按用户存数据 | 升级 **MySQL + bcrypt + JWT**，多用户隔离 |
-| 6 | 会话删除可能残留消息（不一致） | **数据库事务**保证原子性 |
-| 7 | DashScope 免费版 QPS 受限，并发 embedding 被限流 | **逐条串行**处理摄入 |
-| 8 | 整页滚动、左右滚动不独立 | 视口高度锁死 + 内部区域各自 `overflow-y: auto` |
-| 9 | 滚动条抢眼 | 极细（4px）+ 半透明滑块，既能定位又不干扰 |
-| 10 | 向量检索是**单路稠密检索**，无重排 | 后续可升级：**混合检索**（BM25+向量，RRF 融合）扩召回 → **重排**（bge-reranker）提精度 → 封装成可配置 **Query Pipeline** |
-
----
-
-## 八、踩坑与解决方案(真实踩坑经历)
-
-### 坑 1：DashScope 免费版 QPS 限流
-- **现象**：摄入小说时并发 embedding 频繁报限流错误。
-- **原因**：免费版有 QPS 上限，`Promise.all` 并发请求触发。
-- **解法**：改为**逐条串行**生成向量再批量插入。
-- **收获**：调用第三方 API 前要了解其限流策略，工程上要控制并发。
-
-### 坑 2：COLLECTION_NAME 不一致，检索到"别的书"
-- **现象**：问答返回《天龙八部》的内容，与《吞噬星空》无关。
-- **原因**：query 脚本里 collection 写成了 `ebook4`，实际数据在 `ebook8`。
-- **解法**：统一三个入口（main/query/server）的 `COLLECTION_NAME`。
-- **收获**：配置常量要单一来源、全局一致，跨文件靠人工同步容易出错。
-
-### 坑 3：pnpm / npm 混用被沙箱拦截
-- **现象**：`pnpm add` 卡在 store 目录（指向受限路径），npm 崩溃。
-- **原因**：pnpm 全局 store 指向受限路径，npm 无法解析 pnpm 的符号链接 node_modules。
-- **解法**：把 store 复制到项目内 + `--store-dir` 重链。
-- **收获**：理解 pnpm 的 store（全局缓存+硬链接）机制，以及 npm/pnpm 不能混用。
-
-### 坑 4：sys_user 表缺 role 字段
-- **现象**：JWT payload 想带 `role`，但表里没有该列。
-- **解法**：`ALTER TABLE sys_user ADD COLUMN role VARCHAR(20) DEFAULT 'user'`。
-- **收获**：Schema 演进是常态，新增字段要设 `DEFAULT` 避免影响存量数据。
-
-### 坑 5：catch 块变量名不匹配导致运行时崩溃
-- **现象**：`catch (error)` 里却用了 `err`，报 `ReferenceError`。
-- **解法**：保持 catch 参数名与块内引用一致。
-- **收获**：低级但致命，代码规范（命名一致）能避免。
-
-### 坑 6：文件路径字符串必须精确匹配
-- **现象**：读不到 EPUB / 音频文件。
-- **原因**：磁盘文件名含空格/特殊字符，路径字符串与真实文件名不一致。
-- **解法**：路径照抄实际文件名，必要时 `encodeURIComponent`。
-
-### 坑 7：浏览器音频自动播放被拦截
-- **现象**：页面加载后背景音乐不响。
-- **原因**：浏览器要求用户交互后才能播放音频。
-- **解法**：用户点击页面任意位置 / 音乐按钮后才 `audio.play()`。
-
-### 坑 8：后端改动后接口不生效
-- **现象**：改了路由，前端仍 404。
-- **原因**：Node 进程未重启，改动未加载。
-- **解法**：每次改后端代码必须重启服务（`Ctrl+C` 后重新 `node src/server.js`）。
-
-### 坑 9：敏感配置进 Git
-- **现象**：`.env`（含 DashScope Key、Zilliz Token）可能被提交到仓库。
-- **解法**：`.env` 加入 `.gitignore`，只提交 `.env.example` 模板；`JWT_SECRET` 从环境变量读取。
-- **收获**：密钥泄露 = 凭据被滥用，必须环境变量注入 + 模板文件协同。
-
-### 坑 10：仓库文件超 GitHub 100MB 限制
-- **现象**：`public/assets.tar`（打包的素材）过大无法 push。
-- **解法**：`.gitignore` 忽略 `*.tar`，素材从资源目录读取。
-- **收获**：大文件不该进 Git，用外部存储或资源目录。
-
-### 坑 11：Railway 部署构建失败
-- **现象**：Railway 无法启动 Node 项目。
-- **原因**：未显式配置 build/start 命令。
-- **解法**：配置 `build: npm install`、`start: node src/server.js`，端口用 `process.env.PORT || 3000`。
-
----
-
-## 九、项目亮点总结（自我评价）
-
-1. **完整的 RAG 工程链路**：摄入（EPUB→切块→向量化→入库）→ 检索（Milvus top-k）→ 生成（流式），从数据到问答全部打通，且可复现验证。
-2. **真实的 Web 工程能力**：JWT 鉴权、bcrypt 密码、多用户数据隔离、事务一致性、参数化查询防注入——不是 demo，是有安全意识的工程。
-3. **流式输出体验**：ChatGPT 式打字机 + 来源溯源，兼顾效果与原理（ReadableStream / TextDecoder / 网关缓冲）。
-4. **业务数据与向量数据分离**：MySQL 管"对话记录"，Milvus 管"知识检索"，讲得清分工。
-5. **踩坑多、复盘深**：限流、集合名不一致、沙箱、自动播放等 11 个坑都沉淀成了解决方案。
-
----
-
-## 十、后续优化方向
-
-- [ ] **混合检索**：BM25 稀疏检索 + 向量稠密检索，RRF 融合，解决人名/数字等精确词召回差
-- [ ] **重排（Rerank）**：bge-reranker 对 top-k 精排，提升送入 prompt 的质量
-- [ ] **Query Pipeline 化**：把检索-生成链路封装成可配置、可缓存、可流式的组件
-- [ ] **会话标题智能生成**：用 LLM 根据首条问题自动生成
-- [ ] **消息分页**：长会话历史接口分页加载，避免一次拉全量
-
----
-
-## 十一、部署指南（阿里云 ECS + Docker Compose）
-
-### 11.1 部署架构
-
-```
-用户浏览器
-   │ HTTP(80)
-┌──▼──────────────┐
-│   Nginx 反代      │  proxy_buffering off（保证流式打字机）
-└──┬──────────────┘
-┌──▼──────────────┐
-│  app 容器:3000    │  Node + Express + RAG
-└──┬──────────────┘
-   │ 容器网络内连 mysql 服务
-┌──▼──────────────┐
-│ mysql 容器:3306   │  数据卷持久化，initdb.d 自动建表
-└──────────────────┘
-   ├── Milvus（云端，环境变量注入）
-   └── DashScope（云端，环境变量注入）
-```
-
-### 11.2 部署产物
-
-| 文件 | 作用 |
-|------|------|
-| [docker-compose.yml](file:///d:/test/demo-吞噬星空1.0/tsxkRAG/docker-compose.yml) | 一键编排 mysql + app + nginx 三服务 |
-| [Dockerfile](file:///d:/test/demo-吞噬星空1.0/tsxkRAG/Dockerfile) | node:20-slim 镜像，bcrypt 原生模块可用 |
-| [.dockerignore](file:///d:/test/demo-吞噬星空1.0/tsxkRAG/.dockerignore) | 排除 .env / node_modules / *.tar / 文档 |
-| [deploy/schema.sql](file:///d:/test/demo-吞噬星空1.0/tsxkRAG/deploy/schema.sql) | MySQL 首次启动自动建三张表 |
-| [deploy/nginx.conf](file:///d:/test/demo-吞噬星空1.0/tsxkRAG/deploy/nginx.conf) | 反向代理 + 关闭缓冲保流式 |
-
-### 11.3 部署步骤
+先构建 Compose 引用的应用镜像，再启动服务：
 
 ```bash
-# 1. 在 docker-compose.yml 同级放置 .env（参照 .env.example 填写真实生产值）
-#    - DB_HOST 填 mysql、DB_PORT 填 3306（容器内用服务名互访）
-#    - JWT_SECRET 用高强度随机值
-
-# 2. 构建并启动全套
-docker compose up -d --build
-
-# 3. 查看状态
+docker build -t tsxkrag-app:latest .
+docker compose up -d
 docker compose ps
-
-# 4. 访问
-#    http://服务器公网IP  （nginx 80 端口入口）
+docker compose logs -f app
 ```
 
-### 11.4 数据迁移（可选，把本地 dev 数据带上去）
+当前 `deploy/nginx.conf` 使用项目部署域名并将 HTTP 重定向到 HTTPS。部署到其他环境前，需要将其中的 `server_name` 改为自己的域名，并把 `fullchain.pem`、`private.key` 放入 `deploy/certs/`，然后访问 `https://<你的域名>`。
 
-```bash
-# 本地导出
-docker exec rag-mysql8 mysqldump -uroot -p<密码> rag_system > rag_system_dump.sql
-# 传到服务器后导入
-docker exec -i rag-mysql8 mysql -uroot -p<密码> rag_system < rag_system_dump.sql
-```
+部署注意事项：
 
-### 11.5 生产要点
+1. Compose 内部连接 MySQL 时使用服务名 `mysql` 和容器端口 `3306`；
+2. MySQL 使用命名卷持久化，仍需配置定期备份；
+3. 不要对公网暴露 MySQL 端口；
+4. Nginx 必须关闭流式接口缓冲；
+5. 当前 Compose 只引用 `tsxkrag-app:latest`，不会根据 Dockerfile 自动构建镜像；
+6. 生产环境建议配置接口限流、日志脱敏和密钥托管；
+7. Milvus、模型和搜索服务位于外部网络，需设置合理的超时、重试与调用预算。
 
-1. **MySQL 数据持久化**：`mysql-data` 数据卷挂载，容器重建不丢数据（备份用 `mysqldump` 定时导出）。
-2. **流式输出**：nginx 已配置 `proxy_buffering off` + `proxy_cache off`，配合后端 `X-Accel-Buffering: no`，打字机效果在线生效。
-3. **bcrypt 原生模块**：用 `node:20-slim`（Debian 系）官方镜像，避免 alpine 上编译失败。
-4. **大素材**：`.tar` 已进 `.gitignore` 和 `.dockerignore`，通过 `public/assets/` 由 Express 静态托管。
-5. **安全组**：阿里云控制台放行 80 端口（Nginx 入口）；3306 数据库端口无需对外暴露（容器内网络互访）。
-6. **HTTPS（建议）**：生产用域名后可在 nginx 增加 443 server 配置 SSL 证书。
+## 已知边界
 
+为准确描述当前完成度，以下能力尚未实现或仍需加强：
+
+- 当前仅使用稠密向量检索，没有 BM25 + 向量混合召回；
+- 当前没有独立 reranker，多轮结果仅做 ID 去重和分数择优；
+- `0.55` 是经验阈值，尚未通过系统化阈值实验确定；
+- 流开始后的异常目前会结束连接，尚未发送显式 `error` 事件；
+- 未完整实现客户端断开后的上游模型取消和统一背压控制；
+- 请求体校验仍较轻量，后续可加入类型、去空白和长度限制；
+- 评测仍以章节命中和关键词规则为主，缺少忠实度、引用一致性及人工盲评；
+- 当前没有自动化单元测试与集成测试；
+- Embedding 摄入为串行实现，稳定但吞吐量有限。
+
+## 后续计划
+
+- [ ] 混合检索：BM25 + 稠密向量，使用 RRF 融合结果
+- [ ] 重排：扩大初召回后使用 reranker 选择最终上下文
+- [ ] 评测升级：Recall@K、MRR、答案忠实度、引用一致性和成本统计
+- [ ] 流式可靠性：显式 `error` 事件、断线取消、超时与重试
+- [ ] 输入安全：严格 Schema 校验、Prompt Injection 防护与内容边界
+- [ ] 可观测性：请求 ID、节点耗时、Token 用量、错误率和检索分数分布
+- [ ] 数据管道：批量限速、失败重试、断点续传和增量索引
+- [ ] 自动化测试：路由节点、检索合并、权限边界与流式协议测试
+
+## 面试讲解提纲
+
+如果用于项目面试，可以按以下顺序在 3～5 分钟内介绍：
+
+1. **问题**：线性 RAG 面对复杂关系问题和库外资讯时能力有限；
+2. **方案**：用 LangGraph 将路由、拆解、检索、规划、联网和生成建模为状态图；
+3. **检索**：EPUB 切片后写入 Milvus，查询时执行 COSINE Top-K，多轮结果去重；
+4. **可靠性**：本地证据不足时联网兜底，无资料时明确拒答；
+5. **工程化**：JWT、多用户会话、MySQL 持久化、请求级 sink 和 NDJSON 流；
+6. **验证**：用固定 20 题记录检索命中、关键词正确率和首 Token 延迟；
+7. **边界**：主动说明尚无混合检索与 reranker，并给出下一步实验方案。
+
+项目最重要的可迁移能力并不是小说领域本身，而是完整的 RAG 数据链路、检索与生成编排、流式接口协议、评测意识以及 Web 工程能力。
+
+## License
+
+本仓库代码按 `package.json` 中声明的 ISC License 使用。小说文本、图片、视频和音频等素材的版权归原作者或原权利人所有，仅用于个人学习与技术演示，请勿用于商业用途。

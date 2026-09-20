@@ -89,6 +89,22 @@ export async function getMessages(conversationId) {
 }
 
 /**
+ * 查询最近的对话记忆，供下一轮 RAG 做指代消解。
+ * 只读已完成的历史消息；调用方在写入本轮用户问题前调用，避免当前问题重复出现。
+ */
+export async function getRecentMessages(conversationId, limit = 8) {
+  const safeLimit = Math.min(Math.max(Number(limit) || 8, 1), 12)
+  const rows = await query(
+    `SELECT role, content FROM messages
+     WHERE conversation_id = ?
+     ORDER BY create_time DESC, id DESC
+     LIMIT ${safeLimit}`,
+    [conversationId]
+  )
+  return rows.reverse()
+}
+
+/**
  * 删除会话及其全部消息（事务保证一致性）
  * @param {number} conversationId
  * @param {number} userId

@@ -8,7 +8,7 @@ import { authMiddleware } from './middleware/auth.js'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 import fs from 'fs'
-import { createConversation, appendMessage, getConversation } from './models/chatModel.js'
+import { createConversation, appendMessage, getConversation, getRecentMessages } from './models/chatModel.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -55,6 +55,12 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
       conversationId = created.id
     }
 
+    // 读取有限的持久化短期记忆：复用 MySQL 消息，不把完整会话无限塞进模型上下文
+    const recentMessages = await getRecentMessages(conversationId, 8)
+    const conversationContext = recentMessages
+      .map((message) => `${message.role === 'user' ? '用户' : '助手'}：${String(message.content).slice(0, 1800)}`)
+      .join('\n')
+
     // 先落库用户问题
     await appendMessage(conversationId, 'user', question, null)
 
@@ -100,6 +106,7 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
       question,
       k: 5,               // 每轮检索条数（与原 /api/chat 一致）
       maxRetrievalCount: 5, // 多跳检索轮数上限（复杂问题结论层子问题常排前3位，5轮够用）
+      conversationContext,
       sink,
     })
 
