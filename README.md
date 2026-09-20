@@ -2,8 +2,10 @@
 
 > 面向《吞噬星空》全集的智能问答应用。系统完成了从 EPUB 解析、文本切片、向量化入库，到问题路由、多跳检索、联网兜底、流式生成、来源展示和会话持久化的完整链路。
 
+[5分钟项目演示](https://b23.tv/blH0lDH)
 
-[![吞噬星空RAG助手演示封面]([./demo.png](https://github.com/user-attachments/assets/b8329973-280d-417e-91cf-8371acb48aa3))](https://b23.tv/blH0lDH)
+<img width="2298" height="1102" alt="demo" src="https://github.com/user-attachments/assets/63833f46-7003-4938-b5da-c3ddb1d3cc73" />
+
 ## 项目概览
 
 这不是一次“检索 Top-K 后直接调用模型”的线性问答。当前 Web 主链路由 LangGraph 编排，会先判断问题类型，再按场景选择直接回答、复杂问题拆解或联网搜索：
