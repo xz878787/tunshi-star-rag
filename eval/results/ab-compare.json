@@ -1,0 +1,2603 @@
+{
+  "generatedAt": "2026-09-25T13:21:30.060Z",
+  "configs": [
+    {
+      "key": "A",
+      "label": "改造前基线",
+      "SPARSE_BACKEND": "none",
+      "RERANK_ENABLED": "false",
+      "RERANK_CANDIDATE_K": "5",
+      "QUERY_AUGMENT_ENABLED": "false"
+    },
+    {
+      "key": "B",
+      "label": "仅宽召回+重排",
+      "SPARSE_BACKEND": "none",
+      "RERANK_ENABLED": "true",
+      "RERANK_CANDIDATE_K": "15",
+      "QUERY_AUGMENT_ENABLED": "false"
+    },
+    {
+      "key": "C",
+      "label": "稀疏+宽召回+重排",
+      "SPARSE_BACKEND": "auto",
+      "RERANK_ENABLED": "true",
+      "RERANK_CANDIDATE_K": "15",
+      "QUERY_AUGMENT_ENABLED": "false"
+    }
+  ],
+  "scores": [
+    {
+      "details": [
+        {
+          "id": 1,
+          "question": "罗峰最初是如何发现自己具有精神念力的？",
+          "goldChapters": [
+            25
+          ],
+          "answerKeywords": [
+            "飞刀",
+            "变向",
+            "精神念力"
+          ],
+          "minKeywordHits": 2,
+          "chapters": [
+            112,
+            112,
+            145,
+            25,
+            25
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "dense",
+            "dense",
+            "dense"
+          ],
+          "topChapter": 112,
+          "matched": [
+            25
+          ],
+          "matchedChannels": [
+            "dense"
+          ],
+          "topHit": false,
+          "topScore": 0.7786868214607239,
+          "ms": 393,
+          "sparseKept": 0,
+          "reranked": false,
+          "bestRerankScore": null,
+          "topChannel": "dense"
+        },
+        {
+          "id": 2,
+          "question": "金角巨兽为什么会被巴巴塔认为对地球极度危险？",
+          "goldChapters": [
+            246,
+            247,
+            248
+          ],
+          "answerKeywords": [
+            "恒星级",
+            "巅峰血统",
+            "星空巨兽"
+          ],
+          "minKeywordHits": 2,
+          "chapters": [
+            248,
+            246,
+            247,
+            266,
+            247
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "dense",
+            "dense",
+            "dense"
+          ],
+          "topChapter": 248,
+          "matched": [
+            248,
+            246,
+            247
+          ],
+          "matchedChannels": [
+            "dense"
+          ],
+          "topHit": true,
+          "topScore": 0.7423326969146729,
+          "ms": 258,
+          "sparseKept": 0,
+          "reranked": false,
+          "bestRerankScore": null,
+          "topChannel": "dense"
+        },
+        {
+          "id": 3,
+          "question": "罗峰夺舍金角巨兽后，巴巴塔如何评价这次机遇？",
+          "goldChapters": [
+            270,
+            272
+          ],
+          "answerKeywords": [
+            "夺舍",
+            "金角巨兽",
+            "亿万年不遇"
+          ],
+          "minKeywordHits": 2,
+          "chapters": [
+            247,
+            459,
+            268,
+            270,
+            252
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "dense",
+            "dense",
+            "dense"
+          ],
+          "topChapter": 247,
+          "matched": [
+            270
+          ],
+          "matchedChannels": [
+            "dense"
+          ],
+          "topHit": false,
+          "topScore": 0.7244502902030945,
+          "ms": 206,
+          "sparseKept": 0,
+          "reranked": false,
+          "bestRerankScore": null,
+          "topChannel": "dense"
+        },
+        {
+          "id": 4,
+          "question": "巴巴塔是谁，它与呼延博和罗峰分别是什么关系？",
+          "goldChapters": [
+            228,
+            231
+          ],
+          "answerKeywords": [
+            "智能生命",
+            "呼延博",
+            "罗峰",
+            "辅助"
+          ],
+          "minKeywordHits": 3,
+          "chapters": [
+            1346,
+            1346,
+            931,
+            1347,
+            1347
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "dense",
+            "dense",
+            "dense"
+          ],
+          "topChapter": 1346,
+          "matched": [],
+          "matchedChannels": [],
+          "topHit": false,
+          "topScore": 0.7179050445556641,
+          "ms": 174,
+          "sparseKept": 0,
+          "reranked": false,
+          "bestRerankScore": null,
+          "topChannel": "dense"
+        },
+        {
+          "id": 5,
+          "question": "陨墨星号飞船内的尸体和呼延博的经历说明了什么？",
+          "goldChapters": [
+            230,
+            231
+          ],
+          "answerKeywords": [
+            "陨墨星号",
+            "不朽",
+            "呼延博",
+            "追杀"
+          ],
+          "minKeywordHits": 3,
+          "chapters": [
+            936,
+            1346,
+            1346,
+            228,
+            228
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "dense",
+            "dense",
+            "dense"
+          ],
+          "topChapter": 936,
+          "matched": [],
+          "matchedChannels": [],
+          "topHit": false,
+          "topScore": 0.6683320999145508,
+          "ms": 176,
+          "sparseKept": 0,
+          "reranked": false,
+          "bestRerankScore": null,
+          "topChannel": "dense"
+        },
+        {
+          "id": 6,
+          "question": "虚拟宇宙公司为什么在宇宙中地位特殊？",
+          "goldChapters": [
+            292,
+            293
+          ],
+          "answerKeywords": [
+            "虚拟宇宙",
+            "技术",
+            "宇宙国",
+            "不泄露"
+          ],
+          "minKeywordHits": 2,
+          "chapters": [
+            634,
+            424,
+            485,
+            292,
+            446
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "dense",
+            "dense",
+            "dense"
+          ],
+          "topChapter": 634,
+          "matched": [
+            292
+          ],
+          "matchedChannels": [
+            "dense"
+          ],
+          "topHit": false,
+          "topScore": 0.6995823979377747,
+          "ms": 251,
+          "sparseKept": 0,
+          "reranked": false,
+          "bestRerankScore": null,
+          "topChannel": "dense"
+        },
+        {
+          "id": 7,
+          "question": "混沌城主在混沌城对两名不朽神灵出手时展现了怎样的控制力？",
+          "goldChapters": [
+            658,
+            728
+          ],
+          "answerKeywords": [
+            "空间",
+            "静止",
+            "战斗力",
+            "不朽神灵"
+          ],
+          "minKeywordHits": 3,
+          "chapters": [
+            465,
+            465,
+            1209,
+            1209,
+            1294
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "dense",
+            "dense",
+            "dense"
+          ],
+          "topChapter": 465,
+          "matched": [],
+          "matchedChannels": [],
+          "topHit": false,
+          "topScore": 0.7321098446846008,
+          "ms": 170,
+          "sparseKept": 0,
+          "reranked": false,
+          "bestRerankScore": null,
+          "topChannel": "dense"
+        },
+        {
+          "id": 8,
+          "question": "罗峰为了保住地球，如何利用黑龙山帝国的所有权规则对付诺岚山家族？",
+          "goldChapters": [
+            309,
+            312,
+            318
+          ],
+          "answerKeywords": [
+            "黑龙山帝国",
+            "地球所有权",
+            "诺岚山",
+            "星盗"
+          ],
+          "minKeywordHits": 3,
+          "chapters": [
+            798,
+            318,
+            318,
+            331,
+            309
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "dense",
+            "dense",
+            "dense"
+          ],
+          "topChapter": 798,
+          "matched": [
+            318,
+            309
+          ],
+          "matchedChannels": [
+            "dense"
+          ],
+          "topHit": false,
+          "topScore": 0.7613005638122559,
+          "ms": 206,
+          "sparseKept": 0,
+          "reranked": false,
+          "bestRerankScore": null,
+          "topChannel": "dense"
+        },
+        {
+          "id": 9,
+          "question": "星辰塔为什么吸引域外战场的封王强者？",
+          "goldChapters": [
+            825,
+            826,
+            830,
+            836
+          ],
+          "answerKeywords": [
+            "危险",
+            "机遇",
+            "封王",
+            "域外战场"
+          ],
+          "minKeywordHits": 2,
+          "chapters": [
+            887,
+            889,
+            887,
+            920,
+            887
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "dense",
+            "dense",
+            "dense"
+          ],
+          "topChapter": 887,
+          "matched": [],
+          "matchedChannels": [],
+          "topHit": false,
+          "topScore": 0.7467730045318604,
+          "ms": 166,
+          "sparseKept": 0,
+          "reranked": false,
+          "bestRerankScore": null,
+          "topChannel": "dense"
+        },
+        {
+          "id": 10,
+          "question": "坐山客是谁，他与罗峰、焱帝是什么关系？",
+          "goldChapters": [
+            909,
+            907
+          ],
+          "answerKeywords": [
+            "老师",
+            "罗峰",
+            "焱帝",
+            "宇宙最强者"
+          ],
+          "minKeywordHits": 3,
+          "chapters": [
+            1332,
+            1184,
+            1059,
+            909,
+            1426
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "dense",
+            "dense",
+            "dense"
+          ],
+          "topChapter": 1332,
+          "matched": [
+            909
+          ],
+          "matchedChannels": [
+            "dense"
+          ],
+          "topHit": false,
+          "topScore": 0.7064284086227417,
+          "ms": 191,
+          "sparseKept": 0,
+          "reranked": false,
+          "bestRerankScore": null,
+          "topChannel": "dense"
+        },
+        {
+          "id": 11,
+          "question": "《九劫秘典》的作用是什么，为什么它被说成违背宇宙运转法则？",
+          "goldChapters": [
+            900,
+            901,
+            905,
+            907
+          ],
+          "answerKeywords": [
+            "基因",
+            "提升",
+            "宇宙运转法则",
+            "坐山客"
+          ],
+          "minKeywordHits": 3,
+          "chapters": [
+            651,
+            1126,
+            1092,
+            1425,
+            1126
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "dense",
+            "dense",
+            "dense"
+          ],
+          "topChapter": 651,
+          "matched": [],
+          "matchedChannels": [],
+          "topHit": false,
+          "topScore": 0.6558952331542969,
+          "ms": 256,
+          "sparseKept": 0,
+          "reranked": false,
+          "bestRerankScore": null,
+          "topChannel": "dense"
+        },
+        {
+          "id": 12,
+          "question": "血洛世界任务要求罗峰完成哪两个目标？",
+          "goldChapters": [
+            505
+          ],
+          "answerKeywords": [
+            "血洛晶",
+            "血武者",
+            "血洛勋章",
+            "积分"
+          ],
+          "minKeywordHits": 3,
+          "chapters": [
+            505,
+            505,
+            740,
+            579,
+            516
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "dense",
+            "dense",
+            "dense"
+          ],
+          "topChapter": 505,
+          "matched": [
+            505
+          ],
+          "matchedChannels": [
+            "dense"
+          ],
+          "topHit": true,
+          "topScore": 0.7672092914581299,
+          "ms": 162,
+          "sparseKept": 0,
+          "reranked": false,
+          "bestRerankScore": null,
+          "topChannel": "dense"
+        },
+        {
+          "id": 13,
+          "question": "魔音神将传承分为几个阶段，完成第一阶段会得到什么？",
+          "goldChapters": [
+            593,
+            595
+          ],
+          "answerKeywords": [
+            "三个阶段",
+            "第一阶段",
+            "初选者",
+            "奖励"
+          ],
+          "minKeywordHits": 3,
+          "chapters": [
+            595,
+            616,
+            597,
+            616,
+            619
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "dense",
+            "dense",
+            "dense"
+          ],
+          "topChapter": 595,
+          "matched": [
+            595
+          ],
+          "matchedChannels": [
+            "dense"
+          ],
+          "topHit": true,
+          "topScore": 0.7945875525474548,
+          "ms": 231,
+          "sparseKept": 0,
+          "reranked": false,
+          "bestRerankScore": null,
+          "topChannel": "dense"
+        },
+        {
+          "id": 14,
+          "question": "呼延博在陨墨星一脉中给罗峰留下了哪些重要传承？",
+          "goldChapters": [
+            207,
+            228,
+            231,
+            232
+          ],
+          "answerKeywords": [
+            "呼延博",
+            "遁天梭",
+            "巴巴塔",
+            "陨墨星"
+          ],
+          "minKeywordHits": 3,
+          "chapters": [
+            228,
+            936,
+            705,
+            931,
+            1346
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "dense",
+            "dense",
+            "dense"
+          ],
+          "topChapter": 228,
+          "matched": [
+            228
+          ],
+          "matchedChannels": [
+            "dense"
+          ],
+          "topHit": true,
+          "topScore": 0.7449195384979248,
+          "ms": 168,
+          "sparseKept": 0,
+          "reranked": false,
+          "bestRerankScore": null,
+          "topChannel": "dense"
+        },
+        {
+          "id": 15,
+          "question": "罗峰与徐欣早期是如何认识的，罗峰为什么没有马上追求她？",
+          "goldChapters": [
+            6,
+            7
+          ],
+          "answerKeywords": [
+            "高一",
+            "同班",
+            "暗恋",
+            "改变家庭命运"
+          ],
+          "minKeywordHits": 3,
+          "chapters": [
+            6,
+            67,
+            46,
+            184
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "dense",
+            "dense"
+          ],
+          "topChapter": 6,
+          "matched": [
+            6
+          ],
+          "matchedChannels": [
+            "dense"
+          ],
+          "topHit": true,
+          "topScore": 0.7430649995803833,
+          "ms": 200,
+          "sparseKept": 0,
+          "reranked": false,
+          "bestRerankScore": null,
+          "topChannel": "dense"
+        },
+        {
+          "id": 16,
+          "question": "罗峰的两个儿子叫什么，他们曾如何借助虚拟游戏学习？",
+          "goldChapters": [
+            303,
+            332
+          ],
+          "answerKeywords": [
+            "罗平",
+            "罗海",
+            "虚拟游戏",
+            "辅助教学"
+          ],
+          "minKeywordHits": 3,
+          "chapters": [
+            647,
+            332,
+            647,
+            1521,
+            388
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "dense",
+            "dense",
+            "dense"
+          ],
+          "topChapter": 647,
+          "matched": [
+            332
+          ],
+          "matchedChannels": [
+            "dense"
+          ],
+          "topHit": false,
+          "topScore": 0.750889778137207,
+          "ms": 189,
+          "sparseKept": 0,
+          "reranked": false,
+          "bestRerankScore": null,
+          "topChannel": "dense"
+        },
+        {
+          "id": 17,
+          "question": "洪和雷神分别与哪个武馆有关，他们在地球强者中处于什么位置？",
+          "goldChapters": [
+            99,
+            208,
+            211
+          ],
+          "answerKeywords": [
+            "极限武馆",
+            "雷电武馆",
+            "第一强者",
+            "第二强者"
+          ],
+          "minKeywordHits": 3,
+          "chapters": [
+            219,
+            189,
+            264,
+            331,
+            322
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "dense",
+            "dense",
+            "dense"
+          ],
+          "topChapter": 219,
+          "matched": [],
+          "matchedChannels": [],
+          "topHit": false,
+          "topScore": 0.7550229430198669,
+          "ms": 220,
+          "sparseKept": 0,
+          "reranked": false,
+          "bestRerankScore": null,
+          "topChannel": "dense"
+        },
+        {
+          "id": 18,
+          "question": "罗峰成为武者时为什么选择加入极限武馆？",
+          "goldChapters": [
+            9,
+            10
+          ],
+          "answerKeywords": [
+            "洪",
+            "第一强者",
+            "管理宽松",
+            "自由"
+          ],
+          "minKeywordHits": 2,
+          "chapters": [
+            39,
+            10,
+            30,
+            14
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "dense",
+            "dense"
+          ],
+          "topChapter": 39,
+          "matched": [
+            10
+          ],
+          "matchedChannels": [
+            "dense"
+          ],
+          "topHit": false,
+          "topScore": 0.7816159129142761,
+          "ms": 167,
+          "sparseKept": 0,
+          "reranked": false,
+          "bestRerankScore": null,
+          "topChannel": "dense"
+        },
+        {
+          "id": 19,
+          "question": "摩云藤对洪和罗峰分别有什么价值？",
+          "goldChapters": [
+            169,
+            171,
+            173,
+            232
+          ],
+          "answerKeywords": [
+            "摩云藤",
+            "洪",
+            "罗峰",
+            "宝物"
+          ],
+          "minKeywordHits": 3,
+          "chapters": [
+            364,
+            219,
+            367,
+            232,
+            368
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "dense",
+            "dense",
+            "dense"
+          ],
+          "topChapter": 364,
+          "matched": [
+            232
+          ],
+          "matchedChannels": [
+            "dense"
+          ],
+          "topHit": false,
+          "topScore": 0.7277570962905884,
+          "ms": 252,
+          "sparseKept": 0,
+          "reranked": false,
+          "bestRerankScore": null,
+          "topChannel": "dense"
+        },
+        {
+          "id": 20,
+          "question": "罗峰在域外战场和后续冒险中为什么需要隐藏身份和实力？",
+          "goldChapters": [
+            825,
+            830,
+            836
+          ],
+          "answerKeywords": [
+            "域外战场",
+            "异族",
+            "封王",
+            "身份"
+          ],
+          "minKeywordHits": 2,
+          "chapters": [
+            796,
+            784,
+            111,
+            1054,
+            750
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "dense",
+            "dense",
+            "dense"
+          ],
+          "topChapter": 796,
+          "matched": [],
+          "matchedChannels": [],
+          "topHit": false,
+          "topScore": 0.7059193849563599,
+          "ms": 184,
+          "sparseKept": 0,
+          "reranked": false,
+          "bestRerankScore": null,
+          "topChannel": "dense"
+        }
+      ],
+      "hitQuestions": 13,
+      "topHitQuestions": 5,
+      "goldCovered": 16,
+      "avgTopScore": 0.7352391451597213,
+      "avgMs": 211,
+      "sparseKept": 0,
+      "reranked": 0,
+      "avgRerankScore": null,
+      "sparseTopCount": 0,
+      "errors": 0
+    },
+    {
+      "details": [
+        {
+          "id": 1,
+          "question": "罗峰最初是如何发现自己具有精神念力的？",
+          "goldChapters": [
+            25
+          ],
+          "answerKeywords": [
+            "飞刀",
+            "变向",
+            "精神念力"
+          ],
+          "minKeywordHits": 2,
+          "chapters": [
+            25,
+            25,
+            145,
+            163,
+            40
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "dense",
+            "dense",
+            "dense"
+          ],
+          "topChapter": 25,
+          "matched": [
+            25
+          ],
+          "matchedChannels": [
+            "dense"
+          ],
+          "topHit": true,
+          "topScore": 0.7786868214607239,
+          "ms": 596,
+          "sparseKept": 0,
+          "reranked": true,
+          "bestRerankScore": 0.9832035130446983,
+          "topChannel": "dense"
+        },
+        {
+          "id": 2,
+          "question": "金角巨兽为什么会被巴巴塔认为对地球极度危险？",
+          "goldChapters": [
+            246,
+            247,
+            248
+          ],
+          "answerKeywords": [
+            "恒星级",
+            "巅峰血统",
+            "星空巨兽"
+          ],
+          "minKeywordHits": 2,
+          "chapters": [
+            266,
+            246,
+            440,
+            247,
+            247
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "dense",
+            "dense",
+            "dense"
+          ],
+          "topChapter": 266,
+          "matched": [
+            246,
+            247
+          ],
+          "matchedChannels": [
+            "dense"
+          ],
+          "topHit": false,
+          "topScore": 0.7423326969146729,
+          "ms": 406,
+          "sparseKept": 0,
+          "reranked": true,
+          "bestRerankScore": 0.9772308250383483,
+          "topChannel": "dense"
+        },
+        {
+          "id": 3,
+          "question": "罗峰夺舍金角巨兽后，巴巴塔如何评价这次机遇？",
+          "goldChapters": [
+            270,
+            272
+          ],
+          "answerKeywords": [
+            "夺舍",
+            "金角巨兽",
+            "亿万年不遇"
+          ],
+          "minKeywordHits": 2,
+          "chapters": [
+            266,
+            270,
+            270,
+            270,
+            270
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "dense",
+            "dense",
+            "dense"
+          ],
+          "topChapter": 266,
+          "matched": [
+            270
+          ],
+          "matchedChannels": [
+            "dense"
+          ],
+          "topHit": false,
+          "topScore": 0.7244502902030945,
+          "ms": 358,
+          "sparseKept": 0,
+          "reranked": true,
+          "bestRerankScore": 0.985890866059624,
+          "topChannel": "dense"
+        },
+        {
+          "id": 4,
+          "question": "巴巴塔是谁，它与呼延博和罗峰分别是什么关系？",
+          "goldChapters": [
+            228,
+            231
+          ],
+          "answerKeywords": [
+            "智能生命",
+            "呼延博",
+            "罗峰",
+            "辅助"
+          ],
+          "minKeywordHits": 3,
+          "chapters": [
+            1346,
+            935,
+            1346,
+            1347,
+            1346
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "dense",
+            "dense",
+            "dense"
+          ],
+          "topChapter": 1346,
+          "matched": [],
+          "matchedChannels": [],
+          "topHit": false,
+          "topScore": 0.7179050445556641,
+          "ms": 375,
+          "sparseKept": 0,
+          "reranked": true,
+          "bestRerankScore": 0.9566454423475728,
+          "topChannel": "dense"
+        },
+        {
+          "id": 5,
+          "question": "陨墨星号飞船内的尸体和呼延博的经历说明了什么？",
+          "goldChapters": [
+            230,
+            231
+          ],
+          "answerKeywords": [
+            "陨墨星号",
+            "不朽",
+            "呼延博",
+            "追杀"
+          ],
+          "minKeywordHits": 3,
+          "chapters": [
+            1346,
+            1346,
+            228,
+            936,
+            232
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "dense",
+            "dense",
+            "dense"
+          ],
+          "topChapter": 1346,
+          "matched": [],
+          "matchedChannels": [],
+          "topHit": false,
+          "topScore": 0.6683320999145508,
+          "ms": 364,
+          "sparseKept": 0,
+          "reranked": true,
+          "bestRerankScore": 0.9099613987515272,
+          "topChannel": "dense"
+        },
+        {
+          "id": 6,
+          "question": "虚拟宇宙公司为什么在宇宙中地位特殊？",
+          "goldChapters": [
+            292,
+            293
+          ],
+          "answerKeywords": [
+            "虚拟宇宙",
+            "技术",
+            "宇宙国",
+            "不泄露"
+          ],
+          "minKeywordHits": 2,
+          "chapters": [
+            457,
+            292,
+            446,
+            634,
+            485
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "dense",
+            "dense",
+            "dense"
+          ],
+          "topChapter": 457,
+          "matched": [
+            292
+          ],
+          "matchedChannels": [
+            "dense"
+          ],
+          "topHit": false,
+          "topScore": 0.6995823979377747,
+          "ms": 367,
+          "sparseKept": 0,
+          "reranked": true,
+          "bestRerankScore": 0.9670205805135093,
+          "topChannel": "dense"
+        },
+        {
+          "id": 7,
+          "question": "混沌城主在混沌城对两名不朽神灵出手时展现了怎样的控制力？",
+          "goldChapters": [
+            658,
+            728
+          ],
+          "answerKeywords": [
+            "空间",
+            "静止",
+            "战斗力",
+            "不朽神灵"
+          ],
+          "minKeywordHits": 3,
+          "chapters": [
+            465,
+            465,
+            1326,
+            465,
+            465
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "dense",
+            "dense",
+            "dense"
+          ],
+          "topChapter": 465,
+          "matched": [],
+          "matchedChannels": [],
+          "topHit": false,
+          "topScore": 0.7321098446846008,
+          "ms": 418,
+          "sparseKept": 0,
+          "reranked": true,
+          "bestRerankScore": 0.967451206869235,
+          "topChannel": "dense"
+        },
+        {
+          "id": 8,
+          "question": "罗峰为了保住地球，如何利用黑龙山帝国的所有权规则对付诺岚山家族？",
+          "goldChapters": [
+            309,
+            312,
+            318
+          ],
+          "answerKeywords": [
+            "黑龙山帝国",
+            "地球所有权",
+            "诺岚山",
+            "星盗"
+          ],
+          "minKeywordHits": 3,
+          "chapters": [
+            317,
+            318,
+            318,
+            331,
+            798
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "dense",
+            "dense",
+            "dense"
+          ],
+          "topChapter": 317,
+          "matched": [
+            318
+          ],
+          "matchedChannels": [
+            "dense"
+          ],
+          "topHit": false,
+          "topScore": 0.7613005638122559,
+          "ms": 410,
+          "sparseKept": 0,
+          "reranked": true,
+          "bestRerankScore": 0.9691488197708944,
+          "topChannel": "dense"
+        },
+        {
+          "id": 9,
+          "question": "星辰塔为什么吸引域外战场的封王强者？",
+          "goldChapters": [
+            825,
+            826,
+            830,
+            836
+          ],
+          "answerKeywords": [
+            "危险",
+            "机遇",
+            "封王",
+            "域外战场"
+          ],
+          "minKeywordHits": 2,
+          "chapters": [
+            887,
+            888,
+            887,
+            887,
+            909
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "dense",
+            "dense",
+            "dense"
+          ],
+          "topChapter": 887,
+          "matched": [],
+          "matchedChannels": [],
+          "topHit": false,
+          "topScore": 0.7467730045318604,
+          "ms": 349,
+          "sparseKept": 0,
+          "reranked": true,
+          "bestRerankScore": 0.957500307998653,
+          "topChannel": "dense"
+        },
+        {
+          "id": 10,
+          "question": "坐山客是谁，他与罗峰、焱帝是什么关系？",
+          "goldChapters": [
+            909,
+            907
+          ],
+          "answerKeywords": [
+            "老师",
+            "罗峰",
+            "焱帝",
+            "宇宙最强者"
+          ],
+          "minKeywordHits": 3,
+          "chapters": [
+            1332,
+            909,
+            1266,
+            1059,
+            1522
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "dense",
+            "dense",
+            "dense"
+          ],
+          "topChapter": 1332,
+          "matched": [
+            909
+          ],
+          "matchedChannels": [
+            "dense"
+          ],
+          "topHit": false,
+          "topScore": 0.7064284086227417,
+          "ms": 357,
+          "sparseKept": 0,
+          "reranked": true,
+          "bestRerankScore": 0.9679036713286618,
+          "topChannel": "dense"
+        },
+        {
+          "id": 11,
+          "question": "《九劫秘典》的作用是什么，为什么它被说成违背宇宙运转法则？",
+          "goldChapters": [
+            900,
+            901,
+            905,
+            907
+          ],
+          "answerKeywords": [
+            "基因",
+            "提升",
+            "宇宙运转法则",
+            "坐山客"
+          ],
+          "minKeywordHits": 3,
+          "chapters": [
+            900,
+            1126,
+            982,
+            900,
+            1126
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "dense",
+            "dense",
+            "dense"
+          ],
+          "topChapter": 900,
+          "matched": [
+            900
+          ],
+          "matchedChannels": [
+            "dense"
+          ],
+          "topHit": true,
+          "topScore": 0.6558952331542969,
+          "ms": 424,
+          "sparseKept": 0,
+          "reranked": true,
+          "bestRerankScore": 0.9772308250383483,
+          "topChannel": "dense"
+        },
+        {
+          "id": 12,
+          "question": "血洛世界任务要求罗峰完成哪两个目标？",
+          "goldChapters": [
+            505
+          ],
+          "answerKeywords": [
+            "血洛晶",
+            "血武者",
+            "血洛勋章",
+            "积分"
+          ],
+          "minKeywordHits": 3,
+          "chapters": [
+            543,
+            505,
+            547,
+            560,
+            516
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "dense",
+            "dense",
+            "dense"
+          ],
+          "topChapter": 543,
+          "matched": [
+            505
+          ],
+          "matchedChannels": [
+            "dense"
+          ],
+          "topHit": false,
+          "topScore": 0.7672092914581299,
+          "ms": 386,
+          "sparseKept": 0,
+          "reranked": true,
+          "bestRerankScore": 0.9780509494279953,
+          "topChannel": "dense"
+        },
+        {
+          "id": 13,
+          "question": "魔音神将传承分为几个阶段，完成第一阶段会得到什么？",
+          "goldChapters": [
+            593,
+            595
+          ],
+          "answerKeywords": [
+            "三个阶段",
+            "第一阶段",
+            "初选者",
+            "奖励"
+          ],
+          "minKeywordHits": 3,
+          "chapters": [
+            595,
+            685,
+            844,
+            616,
+            619
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "dense",
+            "dense",
+            "dense"
+          ],
+          "topChapter": 595,
+          "matched": [
+            595
+          ],
+          "matchedChannels": [
+            "dense"
+          ],
+          "topHit": true,
+          "topScore": 0.7945875525474548,
+          "ms": 469,
+          "sparseKept": 0,
+          "reranked": true,
+          "bestRerankScore": 0.9800898917202313,
+          "topChannel": "dense"
+        },
+        {
+          "id": 14,
+          "question": "呼延博在陨墨星一脉中给罗峰留下了哪些重要传承？",
+          "goldChapters": [
+            207,
+            228,
+            231,
+            232
+          ],
+          "answerKeywords": [
+            "呼延博",
+            "遁天梭",
+            "巴巴塔",
+            "陨墨星"
+          ],
+          "minKeywordHits": 3,
+          "chapters": [
+            632,
+            705,
+            936,
+            228,
+            931
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "dense",
+            "dense",
+            "dense"
+          ],
+          "topChapter": 632,
+          "matched": [
+            228
+          ],
+          "matchedChannels": [
+            "dense"
+          ],
+          "topHit": false,
+          "topScore": 0.7449195384979248,
+          "ms": 360,
+          "sparseKept": 0,
+          "reranked": true,
+          "bestRerankScore": 0.9153797211973167,
+          "topChannel": "dense"
+        },
+        {
+          "id": 15,
+          "question": "罗峰与徐欣早期是如何认识的，罗峰为什么没有马上追求她？",
+          "goldChapters": [
+            6,
+            7
+          ],
+          "answerKeywords": [
+            "高一",
+            "同班",
+            "暗恋",
+            "改变家庭命运"
+          ],
+          "minKeywordHits": 3,
+          "chapters": [
+            6,
+            185,
+            102,
+            46,
+            46
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "dense",
+            "dense",
+            "dense"
+          ],
+          "topChapter": 6,
+          "matched": [
+            6
+          ],
+          "matchedChannels": [
+            "dense"
+          ],
+          "topHit": true,
+          "topScore": 0.7430649995803833,
+          "ms": 386,
+          "sparseKept": 0,
+          "reranked": true,
+          "bestRerankScore": 0.9672333100638366,
+          "topChannel": "dense"
+        },
+        {
+          "id": 16,
+          "question": "罗峰的两个儿子叫什么，他们曾如何借助虚拟游戏学习？",
+          "goldChapters": [
+            303,
+            332
+          ],
+          "answerKeywords": [
+            "罗平",
+            "罗海",
+            "虚拟游戏",
+            "辅助教学"
+          ],
+          "minKeywordHits": 3,
+          "chapters": [
+            332,
+            332,
+            388,
+            1099,
+            647
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "dense",
+            "dense",
+            "dense"
+          ],
+          "topChapter": 332,
+          "matched": [
+            332
+          ],
+          "matchedChannels": [
+            "dense"
+          ],
+          "topHit": true,
+          "topScore": 0.750889778137207,
+          "ms": 357,
+          "sparseKept": 0,
+          "reranked": true,
+          "bestRerankScore": 0.9654769496174391,
+          "topChannel": "dense"
+        },
+        {
+          "id": 17,
+          "question": "洪和雷神分别与哪个武馆有关，他们在地球强者中处于什么位置？",
+          "goldChapters": [
+            99,
+            208,
+            211
+          ],
+          "answerKeywords": [
+            "极限武馆",
+            "雷电武馆",
+            "第一强者",
+            "第二强者"
+          ],
+          "minKeywordHits": 3,
+          "chapters": [
+            334,
+            604,
+            189,
+            322,
+            219
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "dense",
+            "dense",
+            "dense"
+          ],
+          "topChapter": 334,
+          "matched": [],
+          "matchedChannels": [],
+          "topHit": false,
+          "topScore": 0.7550229430198669,
+          "ms": 377,
+          "sparseKept": 0,
+          "reranked": true,
+          "bestRerankScore": 0.9420910145263481,
+          "topChannel": "dense"
+        },
+        {
+          "id": 18,
+          "question": "罗峰成为武者时为什么选择加入极限武馆？",
+          "goldChapters": [
+            9,
+            10
+          ],
+          "answerKeywords": [
+            "洪",
+            "第一强者",
+            "管理宽松",
+            "自由"
+          ],
+          "minKeywordHits": 2,
+          "chapters": [
+            10,
+            10,
+            30,
+            135,
+            32
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "dense",
+            "dense",
+            "dense"
+          ],
+          "topChapter": 10,
+          "matched": [
+            10
+          ],
+          "matchedChannels": [
+            "dense"
+          ],
+          "topHit": true,
+          "topScore": 0.7816159129142761,
+          "ms": 342,
+          "sparseKept": 0,
+          "reranked": true,
+          "bestRerankScore": 0.9800898917202313,
+          "topChannel": "dense"
+        },
+        {
+          "id": 19,
+          "question": "摩云藤对洪和罗峰分别有什么价值？",
+          "goldChapters": [
+            169,
+            171,
+            173,
+            232
+          ],
+          "answerKeywords": [
+            "摩云藤",
+            "洪",
+            "罗峰",
+            "宝物"
+          ],
+          "minKeywordHits": 3,
+          "chapters": [
+            219,
+            364,
+            833,
+            760,
+            214
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "dense",
+            "dense",
+            "dense"
+          ],
+          "topChapter": 219,
+          "matched": [],
+          "matchedChannels": [],
+          "topHit": false,
+          "topScore": 0.7277570962905884,
+          "ms": 448,
+          "sparseKept": 0,
+          "reranked": true,
+          "bestRerankScore": 0.9764996705039852,
+          "topChannel": "dense"
+        },
+        {
+          "id": 20,
+          "question": "罗峰在域外战场和后续冒险中为什么需要隐藏身份和实力？",
+          "goldChapters": [
+            825,
+            830,
+            836
+          ],
+          "answerKeywords": [
+            "域外战场",
+            "异族",
+            "封王",
+            "身份"
+          ],
+          "minKeywordHits": 2,
+          "chapters": [
+            784,
+            772,
+            796,
+            750,
+            1237
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "dense",
+            "dense",
+            "dense"
+          ],
+          "topChapter": 784,
+          "matched": [],
+          "matchedChannels": [],
+          "topHit": false,
+          "topScore": 0.7059193849563599,
+          "ms": 389,
+          "sparseKept": 0,
+          "reranked": true,
+          "bestRerankScore": 0.9727871732064995,
+          "topChannel": "dense"
+        }
+      ],
+      "hitQuestions": 13,
+      "topHitQuestions": 6,
+      "goldCovered": 14,
+      "avgTopScore": 0.7352391451597213,
+      "avgMs": 397,
+      "sparseKept": 0,
+      "reranked": 20,
+      "avgRerankScore": 0.9648443014372475,
+      "sparseTopCount": 0,
+      "errors": 0
+    },
+    {
+      "details": [
+        {
+          "id": 1,
+          "question": "罗峰最初是如何发现自己具有精神念力的？",
+          "goldChapters": [
+            25
+          ],
+          "answerKeywords": [
+            "飞刀",
+            "变向",
+            "精神念力"
+          ],
+          "minKeywordHits": 2,
+          "chapters": [
+            25,
+            25,
+            145,
+            163,
+            224
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "dense",
+            "dense",
+            "sparse"
+          ],
+          "topChapter": 25,
+          "matched": [
+            25
+          ],
+          "matchedChannels": [
+            "dense"
+          ],
+          "topHit": true,
+          "topScore": 0.7786868214607239,
+          "ms": 601,
+          "sparseKept": 1,
+          "reranked": true,
+          "bestRerankScore": 0.9832035130446983,
+          "topChannel": "dense"
+        },
+        {
+          "id": 2,
+          "question": "金角巨兽为什么会被巴巴塔认为对地球极度危险？",
+          "goldChapters": [
+            246,
+            247,
+            248
+          ],
+          "answerKeywords": [
+            "恒星级",
+            "巅峰血统",
+            "星空巨兽"
+          ],
+          "minKeywordHits": 2,
+          "chapters": [
+            266,
+            246,
+            440,
+            247,
+            247
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "dense",
+            "dense",
+            "dense"
+          ],
+          "topChapter": 266,
+          "matched": [
+            246,
+            247
+          ],
+          "matchedChannels": [
+            "dense"
+          ],
+          "topHit": false,
+          "topScore": 0.7423326969146729,
+          "ms": 477,
+          "sparseKept": 0,
+          "reranked": true,
+          "bestRerankScore": 0.9772308250383483,
+          "topChannel": "dense"
+        },
+        {
+          "id": 3,
+          "question": "罗峰夺舍金角巨兽后，巴巴塔如何评价这次机遇？",
+          "goldChapters": [
+            270,
+            272
+          ],
+          "answerKeywords": [
+            "夺舍",
+            "金角巨兽",
+            "亿万年不遇"
+          ],
+          "minKeywordHits": 2,
+          "chapters": [
+            270,
+            270,
+            272,
+            270,
+            278
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "sparse",
+            "dense",
+            "dense"
+          ],
+          "topChapter": 270,
+          "matched": [
+            270,
+            272
+          ],
+          "matchedChannels": [
+            "dense",
+            "sparse"
+          ],
+          "topHit": true,
+          "topScore": 0.7244502902030945,
+          "ms": 382,
+          "sparseKept": 1,
+          "reranked": true,
+          "bestRerankScore": 0.9772308250383483,
+          "topChannel": "dense"
+        },
+        {
+          "id": 4,
+          "question": "巴巴塔是谁，它与呼延博和罗峰分别是什么关系？",
+          "goldChapters": [
+            228,
+            231
+          ],
+          "answerKeywords": [
+            "智能生命",
+            "呼延博",
+            "罗峰",
+            "辅助"
+          ],
+          "minKeywordHits": 3,
+          "chapters": [
+            1346,
+            935,
+            1346,
+            1347,
+            1346
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "dense",
+            "dense",
+            "dense"
+          ],
+          "topChapter": 1346,
+          "matched": [],
+          "matchedChannels": [],
+          "topHit": false,
+          "topScore": 0.7179050445556641,
+          "ms": 394,
+          "sparseKept": 0,
+          "reranked": true,
+          "bestRerankScore": 0.9566454423475728,
+          "topChannel": "dense"
+        },
+        {
+          "id": 5,
+          "question": "陨墨星号飞船内的尸体和呼延博的经历说明了什么？",
+          "goldChapters": [
+            230,
+            231
+          ],
+          "answerKeywords": [
+            "陨墨星号",
+            "不朽",
+            "呼延博",
+            "追杀"
+          ],
+          "minKeywordHits": 3,
+          "chapters": [
+            1346,
+            1346,
+            498,
+            228,
+            936
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "sparse",
+            "dense",
+            "dense"
+          ],
+          "topChapter": 1346,
+          "matched": [],
+          "matchedChannels": [],
+          "topHit": false,
+          "topScore": 0.6683320999145508,
+          "ms": 423,
+          "sparseKept": 1,
+          "reranked": true,
+          "bestRerankScore": 0.9099613987515272,
+          "topChannel": "dense"
+        },
+        {
+          "id": 6,
+          "question": "虚拟宇宙公司为什么在宇宙中地位特殊？",
+          "goldChapters": [
+            292,
+            293
+          ],
+          "answerKeywords": [
+            "虚拟宇宙",
+            "技术",
+            "宇宙国",
+            "不泄露"
+          ],
+          "minKeywordHits": 2,
+          "chapters": [
+            457,
+            292,
+            581,
+            446,
+            448
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "sparse",
+            "dense",
+            "sparse"
+          ],
+          "topChapter": 457,
+          "matched": [
+            292
+          ],
+          "matchedChannels": [
+            "dense"
+          ],
+          "topHit": false,
+          "topScore": 0.6995823979377747,
+          "ms": 392,
+          "sparseKept": 2,
+          "reranked": true,
+          "bestRerankScore": 0.9670205805135093,
+          "topChannel": "dense"
+        },
+        {
+          "id": 7,
+          "question": "混沌城主在混沌城对两名不朽神灵出手时展现了怎样的控制力？",
+          "goldChapters": [
+            658,
+            728
+          ],
+          "answerKeywords": [
+            "空间",
+            "静止",
+            "战斗力",
+            "不朽神灵"
+          ],
+          "minKeywordHits": 3,
+          "chapters": [
+            465,
+            465,
+            816,
+            757,
+            1209
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "sparse",
+            "dense",
+            "dense"
+          ],
+          "topChapter": 465,
+          "matched": [],
+          "matchedChannels": [],
+          "topHit": false,
+          "topScore": 0.7321098446846008,
+          "ms": 424,
+          "sparseKept": 1,
+          "reranked": true,
+          "bestRerankScore": 0.9668127548861798,
+          "topChannel": "dense"
+        },
+        {
+          "id": 8,
+          "question": "罗峰为了保住地球，如何利用黑龙山帝国的所有权规则对付诺岚山家族？",
+          "goldChapters": [
+            309,
+            312,
+            318
+          ],
+          "answerKeywords": [
+            "黑龙山帝国",
+            "地球所有权",
+            "诺岚山",
+            "星盗"
+          ],
+          "minKeywordHits": 3,
+          "chapters": [
+            317,
+            317,
+            318,
+            309,
+            318
+          ],
+          "channels": [
+            "dense",
+            "sparse",
+            "dense",
+            "sparse",
+            "dense"
+          ],
+          "topChapter": 317,
+          "matched": [
+            318,
+            309
+          ],
+          "matchedChannels": [
+            "dense",
+            "sparse"
+          ],
+          "topHit": false,
+          "topScore": 0.7613005638122559,
+          "ms": 429,
+          "sparseKept": 2,
+          "reranked": true,
+          "bestRerankScore": 0.9691488197708944,
+          "topChannel": "dense"
+        },
+        {
+          "id": 9,
+          "question": "星辰塔为什么吸引域外战场的封王强者？",
+          "goldChapters": [
+            825,
+            826,
+            830,
+            836
+          ],
+          "answerKeywords": [
+            "危险",
+            "机遇",
+            "封王",
+            "域外战场"
+          ],
+          "minKeywordHits": 2,
+          "chapters": [
+            887,
+            888,
+            892,
+            887,
+            921
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "sparse",
+            "dense",
+            "sparse"
+          ],
+          "topChapter": 887,
+          "matched": [],
+          "matchedChannels": [],
+          "topHit": false,
+          "topScore": 0.7467730045318604,
+          "ms": 433,
+          "sparseKept": 2,
+          "reranked": true,
+          "bestRerankScore": 0.957500307998653,
+          "topChannel": "dense"
+        },
+        {
+          "id": 10,
+          "question": "坐山客是谁，他与罗峰、焱帝是什么关系？",
+          "goldChapters": [
+            909,
+            907
+          ],
+          "answerKeywords": [
+            "老师",
+            "罗峰",
+            "焱帝",
+            "宇宙最强者"
+          ],
+          "minKeywordHits": 3,
+          "chapters": [
+            1332,
+            909,
+            1059,
+            1522,
+            1118
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "dense",
+            "dense",
+            "sparse"
+          ],
+          "topChapter": 1332,
+          "matched": [
+            909
+          ],
+          "matchedChannels": [
+            "dense"
+          ],
+          "topHit": false,
+          "topScore": 0.7064284086227417,
+          "ms": 386,
+          "sparseKept": 1,
+          "reranked": true,
+          "bestRerankScore": 0.9679036713286618,
+          "topChannel": "dense"
+        },
+        {
+          "id": 11,
+          "question": "《九劫秘典》的作用是什么，为什么它被说成违背宇宙运转法则？",
+          "goldChapters": [
+            900,
+            901,
+            905,
+            907
+          ],
+          "answerKeywords": [
+            "基因",
+            "提升",
+            "宇宙运转法则",
+            "坐山客"
+          ],
+          "minKeywordHits": 3,
+          "chapters": [
+            900,
+            1126,
+            982,
+            905,
+            900
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "dense",
+            "sparse",
+            "dense"
+          ],
+          "topChapter": 900,
+          "matched": [
+            900,
+            905
+          ],
+          "matchedChannels": [
+            "dense",
+            "sparse"
+          ],
+          "topHit": true,
+          "topScore": 0.6558952331542969,
+          "ms": 390,
+          "sparseKept": 1,
+          "reranked": true,
+          "bestRerankScore": 0.9772308250383483,
+          "topChannel": "dense"
+        },
+        {
+          "id": 12,
+          "question": "血洛世界任务要求罗峰完成哪两个目标？",
+          "goldChapters": [
+            505
+          ],
+          "answerKeywords": [
+            "血洛晶",
+            "血武者",
+            "血洛勋章",
+            "积分"
+          ],
+          "minKeywordHits": 3,
+          "chapters": [
+            543,
+            505,
+            547,
+            560,
+            516
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "dense",
+            "dense",
+            "dense"
+          ],
+          "topChapter": 543,
+          "matched": [
+            505
+          ],
+          "matchedChannels": [
+            "dense"
+          ],
+          "topHit": false,
+          "topScore": 0.7672092914581299,
+          "ms": 390,
+          "sparseKept": 0,
+          "reranked": true,
+          "bestRerankScore": 0.9780509494279953,
+          "topChannel": "dense"
+        },
+        {
+          "id": 13,
+          "question": "魔音神将传承分为几个阶段，完成第一阶段会得到什么？",
+          "goldChapters": [
+            593,
+            595
+          ],
+          "answerKeywords": [
+            "三个阶段",
+            "第一阶段",
+            "初选者",
+            "奖励"
+          ],
+          "minKeywordHits": 3,
+          "chapters": [
+            595,
+            685,
+            597,
+            616,
+            619
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "sparse",
+            "dense",
+            "dense"
+          ],
+          "topChapter": 595,
+          "matched": [
+            595
+          ],
+          "matchedChannels": [
+            "dense"
+          ],
+          "topHit": true,
+          "topScore": 0.7945875525474548,
+          "ms": 372,
+          "sparseKept": 1,
+          "reranked": true,
+          "bestRerankScore": 0.9800898917202313,
+          "topChannel": "dense"
+        },
+        {
+          "id": 14,
+          "question": "呼延博在陨墨星一脉中给罗峰留下了哪些重要传承？",
+          "goldChapters": [
+            207,
+            228,
+            231,
+            232
+          ],
+          "answerKeywords": [
+            "呼延博",
+            "遁天梭",
+            "巴巴塔",
+            "陨墨星"
+          ],
+          "minKeywordHits": 3,
+          "chapters": [
+            345,
+            632,
+            705,
+            936,
+            228
+          ],
+          "channels": [
+            "sparse",
+            "dense",
+            "dense",
+            "dense",
+            "dense"
+          ],
+          "topChapter": 345,
+          "matched": [
+            228
+          ],
+          "matchedChannels": [
+            "dense"
+          ],
+          "topHit": false,
+          "topScore": 0.7449195384979248,
+          "ms": 369,
+          "sparseKept": 1,
+          "reranked": true,
+          "bestRerankScore": 0.9325328636936452,
+          "topChannel": "sparse"
+        },
+        {
+          "id": 15,
+          "question": "罗峰与徐欣早期是如何认识的，罗峰为什么没有马上追求她？",
+          "goldChapters": [
+            6,
+            7
+          ],
+          "answerKeywords": [
+            "高一",
+            "同班",
+            "暗恋",
+            "改变家庭命运"
+          ],
+          "minKeywordHits": 3,
+          "chapters": [
+            6,
+            46,
+            67,
+            67,
+            7
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "dense",
+            "dense",
+            "sparse"
+          ],
+          "topChapter": 6,
+          "matched": [
+            6,
+            7
+          ],
+          "matchedChannels": [
+            "dense",
+            "sparse"
+          ],
+          "topHit": true,
+          "topScore": 0.7430649995803833,
+          "ms": 459,
+          "sparseKept": 1,
+          "reranked": true,
+          "bestRerankScore": 0.9672333100638366,
+          "topChannel": "dense"
+        },
+        {
+          "id": 16,
+          "question": "罗峰的两个儿子叫什么，他们曾如何借助虚拟游戏学习？",
+          "goldChapters": [
+            303,
+            332
+          ],
+          "answerKeywords": [
+            "罗平",
+            "罗海",
+            "虚拟游戏",
+            "辅助教学"
+          ],
+          "minKeywordHits": 3,
+          "chapters": [
+            332,
+            332,
+            388,
+            648,
+            1512
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "dense",
+            "sparse",
+            "sparse"
+          ],
+          "topChapter": 332,
+          "matched": [
+            332
+          ],
+          "matchedChannels": [
+            "dense"
+          ],
+          "topHit": true,
+          "topScore": 0.750889778137207,
+          "ms": 380,
+          "sparseKept": 2,
+          "reranked": true,
+          "bestRerankScore": 0.9654769496174391,
+          "topChannel": "dense"
+        },
+        {
+          "id": 17,
+          "question": "洪和雷神分别与哪个武馆有关，他们在地球强者中处于什么位置？",
+          "goldChapters": [
+            99,
+            208,
+            211
+          ],
+          "answerKeywords": [
+            "极限武馆",
+            "雷电武馆",
+            "第一强者",
+            "第二强者"
+          ],
+          "minKeywordHits": 3,
+          "chapters": [
+            604,
+            189,
+            322,
+            286,
+            219
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "dense",
+            "sparse",
+            "dense"
+          ],
+          "topChapter": 604,
+          "matched": [],
+          "matchedChannels": [],
+          "topHit": false,
+          "topScore": 0.7550229430198669,
+          "ms": 424,
+          "sparseKept": 1,
+          "reranked": true,
+          "bestRerankScore": 0.8591560909238458,
+          "topChannel": "dense"
+        },
+        {
+          "id": 18,
+          "question": "罗峰成为武者时为什么选择加入极限武馆？",
+          "goldChapters": [
+            9,
+            10
+          ],
+          "answerKeywords": [
+            "洪",
+            "第一强者",
+            "管理宽松",
+            "自由"
+          ],
+          "minKeywordHits": 2,
+          "chapters": [
+            10,
+            10,
+            14,
+            30,
+            30
+          ],
+          "channels": [
+            "dense",
+            "dense",
+            "sparse",
+            "sparse",
+            "dense"
+          ],
+          "topChapter": 10,
+          "matched": [
+            10
+          ],
+          "matchedChannels": [
+            "dense"
+          ],
+          "topHit": true,
+          "topScore": 0.7816159129142761,
+          "ms": 425,
+          "sparseKept": 2,
+          "reranked": true,
+          "bestRerankScore": 0.9800898917202313,
+          "topChannel": "dense"
+        },
+        {
+          "id": 19,
+          "question": "摩云藤对洪和罗峰分别有什么价值？",
+          "goldChapters": [
+            169,
+            171,
+            173,
+            232
+          ],
+          "answerKeywords": [
+            "摩云藤",
+            "洪",
+            "罗峰",
+            "宝物"
+          ],
+          "minKeywordHits": 3,
+          "chapters": [
+            171,
+            219,
+            364,
+            833,
+            214
+          ],
+          "channels": [
+            "sparse",
+            "dense",
+            "dense",
+            "dense",
+            "dense"
+          ],
+          "topChapter": 171,
+          "matched": [
+            171
+          ],
+          "matchedChannels": [
+            "sparse"
+          ],
+          "topHit": true,
+          "topScore": 0.7277570962905884,
+          "ms": 411,
+          "sparseKept": 1,
+          "reranked": true,
+          "bestRerankScore": 0.9772308250383483,
+          "topChannel": "sparse"
+        },
+        {
+          "id": 20,
+          "question": "罗峰在域外战场和后续冒险中为什么需要隐藏身份和实力？",
+          "goldChapters": [
+            825,
+            830,
+            836
+          ],
+          "answerKeywords": [
+            "域外战场",
+            "异族",
+            "封王",
+            "身份"
+          ],
+          "minKeywordHits": 2,
+          "chapters": [
+            784,
+            800,
+            772,
+            822,
+            796
+          ],
+          "channels": [
+            "dense",
+            "sparse",
+            "dense",
+            "sparse",
+            "dense"
+          ],
+          "topChapter": 784,
+          "matched": [],
+          "matchedChannels": [],
+          "topHit": false,
+          "topScore": 0.7059193849563599,
+          "ms": 347,
+          "sparseKept": 2,
+          "reranked": true,
+          "bestRerankScore": 0.9727871732064995,
+          "topChannel": "dense"
+        }
+      ],
+      "hitQuestions": 14,
+      "topHitQuestions": 8,
+      "goldCovered": 19,
+      "avgTopScore": 0.7352391451597213,
+      "avgMs": 415,
+      "sparseKept": 23,
+      "reranked": 20,
+      "avgRerankScore": 0.9611268454584405,
+      "sparseTopCount": 2,
+      "errors": 0
+    }
+  ]
+}

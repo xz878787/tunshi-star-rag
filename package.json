@@ -9,6 +9,8 @@
     "rag": "node src/rag.mjs",
     "start": "node src/server.js",
     "eval:project": "node eval/run-project-eval.mjs",
+    "eval:ab": "node eval/ab-compare.mjs",
+    "eval:ab:answer": "node eval/ab-answer.mjs",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [

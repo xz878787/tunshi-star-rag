@@ -5,11 +5,17 @@
 import { z } from 'zod'
 import { Annotation, END, START, StateGraph } from '@langchain/langgraph'
 import { ChatOpenAI, OpenAIEmbeddings } from '@langchain/openai'
-import { SystemMessage } from '@langchain/core/messages'
+import { HumanMessage, SystemMessage } from '@langchain/core/messages'
 import { MilvusClient, MetricType } from '@zilliz/milvus2-sdk-node'
 import dotenv from 'dotenv'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
+// 检索增强两件套（最小形态）：
+//   hybrid.mjs —— 进程内 BM25 稀疏路 + RRF 融合（单文件，零新依赖，不用 ES）
+//   rerank/dashscopeRerank.mjs —— DashScope 重排器（未配置时自动停用）
+// 注意：这两个模块都不在模块顶层读 env，真正的配置读取都发生在下方 dotenv.config() 之后
+import { DashscopeRerank } from './rerank/dashscopeRerank.mjs'
+import { rrfFuse, sparseRecall, warmupSparse, filterByIdentifier } from './hybrid.mjs'
 
 // .env 按本模块位置解析（即项目根目录），不依赖启动时的工作目录
 // （否则在 src/ 下执行 node server.js 时，dotenv 会去找 src/.env 而读不到根目录配置）
@@ -49,6 +55,29 @@ const client = new MilvusClient({
   token: process.env.MILVUS_TOKEN,
 })
 
+// ===== 检索增强配置（宽召回 → 双通道 RRF 融合 → 重排；全部可用 env 一键回退） =====
+// 两项同时设置 = 与改造前【逐字等价】：RERANK_ENABLED=false + RERANK_CANDIDATE_K=5
+// （再加 SPARSE_BACKEND=none 则连稀疏路也关掉，等于纯向量 Top-5）
+const RERANK_ENABLED = (process.env.RERANK_ENABLED ?? 'true') !== 'false'
+const RERANK_CANDIDATE_K = Number(process.env.RERANK_CANDIDATE_K) || 15 // 宽召回候选条数，也是融合后送重排的条数
+const RERANK_TOP_N = Number(process.env.RERANK_TOP_N) || 0 // 0 = 跟随每轮检索条数（server.js 固定 k=5）
+const QUERY_AUGMENT_ENABLED = process.env.QUERY_AUGMENT_ENABLED === 'true' // 默认关：每条问句多 1 次小模型 + 每路多 N 次召回
+const AUGMENT_QUERY_COUNT = Math.min(5, Number(process.env.AUGMENT_QUERY_COUNT) || 3) // 改写条数（不含原问题），上限 5
+
+// 重排器：未配 RERANK_URL 时不创建实例（只告警不报错，检索自动退化为纯向量 Top-K）
+const reranker =
+  RERANK_ENABLED && process.env.RERANK_URL
+    ? new DashscopeRerank({
+        apiKey: process.env.OPENAI_API_KEY,
+        model: process.env.RERANK_MODEL || 'qwen3-rerank',
+        topN: RERANK_TOP_N || TOP_K,
+        baseUrl: process.env.RERANK_URL,
+      })
+    : null
+if (RERANK_ENABLED && !reranker) {
+  console.warn('未配置 RERANK_URL，重排未启用，检索退化为纯向量 Top-K')
+}
+
 // 启动时调用一次：连接 Milvus 并加载集合到内存
 export async function initRagGraph() {
   await client.connect()
@@ -59,6 +88,8 @@ export async function initRagGraph() {
   } catch (e) {
     console.log('集合已在加载状态')
   }
+  // 稀疏路预热：进程内 BM25 构建约 2.4s，放在启动时做掉，避免首次问答白等
+  await warmupSparse()
 }
 
 // ===== 向量检索（复用原 server.js 的 retrieveRelevantContent） =====
@@ -82,6 +113,102 @@ export async function retrieveRelevantContent(question, k = TOP_K) {
   } catch (error) {
     console.error('检索内容时出错：', error.message)
     return []
+  }
+}
+
+// ===== 查询扩展（可选，默认关）：planModel 把一条问句改写成多角度检索问句 =====
+// 范围约束 1~5 条（不写死 length(3)）：模型给几条用几条，不足不拿原问题补齐——补齐等于白烧一次召回
+const QueryAugmentSchema = z.object({
+  queries: z.array(z.string()).min(1).max(5),
+})
+
+async function augmentQuery(query) {
+  try {
+    return await planModel.withStructuredOutput(QueryAugmentSchema).invoke([
+      new SystemMessage(
+        `你是 RAG 检索查询改写助手。把用户问题改写为 ${AUGMENT_QUERY_COUNT} 条不同角度的检索问句，规则：` +
+          `\n1. 与原问题意图完全一致，不得新增、丢失或颠倒条件；` +
+          `\n2. 【专有名词必须原样保留】人物名、功法招式名、型号、订单号、规范代号、数字编号一个字都不能改，严禁用「主角/他/该标准」等指代替换；` +
+          `\n3. 换措辞或换角度（口语化、书面化、近义表述），不要只做字面同义替换；` +
+          `\n4. 各条之间信息不要重复；` +
+          `\n5. 输出 1~${AUGMENT_QUERY_COUNT} 条完整中文问句。`
+      ),
+      new HumanMessage(`原问题：${query}`),
+    ])
+  } catch (error) {
+    // 改写是增强不是必需：失败静默退化为只检索原问题，绝不阻断问答
+    console.warn('查询改写失败，降级为只检索原问题：', String(error.message).split('\n')[0])
+    return { queries: [] }
+  }
+}
+
+// 原问题固定第 0 位（关闭开关或全失败时列表=[原问题]，行为与无扩展逐字一致）；与原问题、与彼此双重去重
+function buildRetrievalQueries(original, augmentation) {
+  const seen = new Set([original])
+  const out = [original]
+  for (const q of augmentation?.queries ?? []) {
+    const s = String(q ?? '').trim()
+    if (!s || seen.has(s)) continue
+    seen.add(s)
+    out.push(s)
+  }
+  return out
+}
+
+// ===== 检索管线：（可选）查询扩展 → 双通道召回 → RRF 融合 → 编号过滤 →（可选）重排 =====
+/**
+ * 本函数是 retrieveNode 唯一的检索入口。返回的 topScore 是【稠密路召回集合上的最高 COSINE 分】，
+ * 专供 afterRetrieve 的 0.55 低分联网兜底判断使用 —— 绝不掺 BM25 分（无上界）或重排分（0~1 另一量纲）。
+ * @param {string} question 本轮检索问句（通常是拆解出的子问题）
+ * @param {number} [k] 本轮期望保留条数
+ * @returns {Promise<{docs: Array, topScore: number, reranked: boolean}>}
+ */
+export async function retrieveWithRerank(question, k = TOP_K) {
+  // ① 宽召回量：不重排就不宽召（避免白拿一批用不上的片段）
+  const wideK = reranker ? Math.max(k, RERANK_CANDIDATE_K) : k
+
+  // ② 查询扩展（默认关）：关闭时 queries=[原问句]，行为与无扩展逐字一致；原问句固定第 0 位
+  let queries = [question]
+  if (QUERY_AUGMENT_ENABLED) {
+    queries = buildRetrievalQueries(question, await augmentQuery(question))
+    if (queries.length > 1) {
+      console.log(`查询改写：新增 ${queries.length - 1} 条问句，每条走双通道召回`)
+      queries.slice(1).forEach((q, i) => console.log(`  改写${i + 1}：${q}`))
+    }
+  }
+
+  // ③ 逐问句【串行】双通道召回：串行是硬约束（DashScope 免费档 QPS 限制，并发会批量 429）。
+  //    每条问句每通道取满 wideK，不做预算拆分（多问句结果高度重叠，拆 k 会稀释候选）。
+  const denseLists = [] // 稠密路（Milvus COSINE），channel 标记用于分数尺子守卫
+  const sparseLists = [] // 稀疏路（进程内 BM25）
+  for (const q of queries) {
+    denseLists.push((await retrieveRelevantContent(q, wideK)).map((d) => ({ ...d, channel: 'dense' })))
+    sparseLists.push(await sparseRecall(q, wideK))
+  }
+
+  // ④ RRF 融合：★ 稠密路列表必须整体排在稀疏路【之前】—— RRF 只保留同一 id 首次出现的对象，
+  //    两路都命中的切片保留的是 COSINE 分，不会被无上界的 BM25 分顶掉
+  const candidates0 = rrfFuse([...denseLists, ...sparseLists], { topK: wideK })
+  // ④.5 编号硬过滤（用原问题判定，不受改写措辞影响）：含型号/规范代号时剔除不含编号字面的候选
+  const candidates = filterByIdentifier(candidates0, question)
+
+  // ⑤ 阈值依据：只认稠密路的 COSINE 分（与 BM25 分彻底隔离，否则 0.55 阈值静默失效）
+  const topScore = Math.max(0, ...denseLists.flat().map((d) => Number(d.score) || 0))
+
+  if (!candidates.length) return { docs: [], topScore, reranked: false }
+  // ⑥ 重排：增强不是必需，失败必须降级不能中断
+  if (!reranker) return { docs: candidates.slice(0, k), topScore, reranked: false }
+  try {
+    const top = await reranker.compressDocuments(candidates, question)
+    const best = top[0]?.rerankScore
+    console.log(
+      `重排完成：候选${candidates.length}条 → 保留${top.length}条` +
+        (best != null ? `，最高重排分${Number(best).toFixed(4)}` : '')
+    )
+    return { docs: top, topScore, reranked: true }
+  } catch (error) {
+    console.warn('重排失败，降级为 RRF 融合顺序前 K 条:', String(error.message).split('\n')[0])
+    return { docs: candidates.slice(0, k), topScore, reranked: false }
   }
 }
 
@@ -125,10 +252,12 @@ const NextStepSchema = z.object({
 })
 
 // 把图内 documents 转成前端/落库用的 sources 结构（与原 /api/chat 协议一致）
+// channel 守卫：稀疏路独有片段的 score 是 BM25 分（无上界，实测能到 33.24），与 COSINE 不可比，
+// 故显示为 '-'（与联网来源的 '-' 一致），绝不把 BM25 分冒充相似度
 const formatSources = (docs) =>
   (docs || []).map((d) => ({
     chapter: d.chapter_num,
-    score: Number(d.score).toFixed(4),
+    score: d.channel === 'sparse' ? '-' : Number(d.score).toFixed(4),
     content: d.content,
   }))
 
@@ -243,12 +372,26 @@ const decomposeQuestionNode = async (state, config) => {
 }
 
 // ===== 多跳检索去重：同 id 文档保留更高分的一条 =====
+// 跨通道守卫：同一 id 被稠密路/稀疏路分别命中时，一律保留稠密路那条 ——
+// BM25 分无上界（实测 33.24），直接比数值会让它靠量纲假象顶掉 COSINE 那条
 const mergeUnique = (existingDocs, newDocs) => {
   const map = new Map() // ES6 HashMap：按文档 id 去重
   for (const d of [...existingDocs, ...newDocs]) {
     const key = String(d.id)
     const prev = map.get(key)
-    if (!prev || Number(d.score) > Number(prev.score)) {
+    if (!prev) {
+      map.set(key, d)
+      continue
+    }
+    const prevSparse = prev.channel === 'sparse'
+    const curSparse = d.channel === 'sparse'
+    if (prevSparse !== curSparse) {
+      // 跨通道：保留稠密路那条（若现有的是稀疏路而新来的是稠密路，则替换）
+      if (prevSparse) map.set(key, d)
+      continue
+    }
+    // 同通道：保留更高分的一条
+    if (Number(d.score) > Number(prev.score)) {
       map.set(key, d)
     }
   }
@@ -271,20 +414,27 @@ const retrieveNode = async (state, config) => {
   // 思考过程推流：本轮检索意图
   sink?.onThink?.(`第${round}轮检索：「${q}」`)
 
-  const newDocs = await retrieveRelevantContent(q, state.k)
+  // 检索管线：双通道召回 → RRF 融合 →（可选）重排
+  // 返回的 topScore 是【稠密路】宽召回集合上的最高 COSINE 分，供 afterRetrieve 的低分联网兜底判断使用
+  const { docs: newDocs, topScore, reranked } = await retrieveWithRerank(q, state.k)
   // 多轮检索可能重复命中同一片段 → 去重，避免浪费 prompt、诱导 LLM 重复作答
   const merged = mergeUnique(state.documents ?? [], newDocs)
   if (newDocs.length === 0) {
     console.log('本轮未命中相关文档')
     sink?.onThink?.('→ 本轮未命中相关片段')
   } else {
-    console.log(`本轮命中${newDocs.length}条，累计去重后${merged.length}条`)
+    console.log(`本轮命中${newDocs.length}条${reranked ? '（已重排）' : ''}，累计去重后${merged.length}条`)
     newDocs.forEach((item, i) => {
-      console.log(`  [R${i + 1}] score=${Number(item.score).toFixed(4)} 第${item.chapter_num}章`)
+      const rs = item.rerankScore != null ? ` rerank=${Number(item.rerankScore).toFixed(4)}` : ''
+      // 标出通道：稀疏路的 BM25 分与稠密路的 COSINE 分不同量纲，不标会看懵
+      const ch = item.channel === 'sparse' ? 'sparse' : 'dense '
+      console.log(`  [R${i + 1}] ${ch} score=${Number(item.score).toFixed(4)}${rs} 第${item.chapter_num}章`)
     })
     // 思考过程推流：命中概况（章节号去重取前 3 个）
     const chapters = [...new Set(newDocs.map(d => d.chapter_num))].slice(0, 3).join('、')
-    sink?.onThink?.(`→ 命中${newDocs.length}条片段（第${chapters}章等），累计去重${merged.length}条`)
+    sink?.onThink?.(
+      `→ 命中${newDocs.length}条片段（第${chapters}章等），累计去重${merged.length}条${reranked ? '，已按语义相关性重排' : ''}`
+    )
   }
   // 若本轮检索后已无子问题可查 / 已达轮数上限，规划器将被条件边跳过（必然 generate，省一次 LLM 调用），
   // 这里直接补上"开始组织答案"的思考行，保证叙事完整
@@ -294,8 +444,9 @@ const retrieveNode = async (state, config) => {
   } else if (round >= (state.maxRetrievalCount ?? 3)) {
     sink?.onThink?.(`评估：已达检索轮数上限（${state.maxRetrievalCount}轮），基于累计${merged.length}条片段组织答案`)
   }
-  // 记录本轮最高相似度：检索完成后若仍低于阈值，说明库内可能没有该主题（供条件边联网兜底判断）
-  const topScore = newDocs.length ? Math.max(...newDocs.map((d) => Number(d.score))) : 0
+  // 记录本轮最高相似度：由检索管线给出（只取稠密路 COSINE 分，不是重排分 / BM25 分）。
+  // 检索完成后若仍低于阈值，说明库内可能没有该主题（供条件边联网兜底判断）——
+  // 注意这里若不给值（undefined），afterRetrieve 的 `(lastTopScore ?? 0) < 0.55` 会恒为真 → 每次问答都联网
   return {
     documents: merged,
     retrievalCount: round,
