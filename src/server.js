@@ -1,6 +1,6 @@
 // ragGraph.mjs 必须第一个导入：它内部按模块位置加载项目根的 .env，
 // 保证后续 db.js / jwt 等模块求值时环境变量已就绪（从任意目录启动均可）
-import { runAgenticRAG, initRagGraph, formatWebSources } from './ragGraph.mjs'
+import { runAgenticRAG, initRagGraph, formatWebSources, summarizeHistory } from './ragGraph.mjs'
 import express from 'express'
 import authRoutes from './routes/auth.js'
 import chatRoutes from './routes/chat.js'
@@ -8,13 +8,54 @@ import { authMiddleware } from './middleware/auth.js'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 import fs from 'fs'
-import { createConversation, appendMessage, getConversation, getRecentMessages } from './models/chatModel.js'
+import {
+  createConversation,
+  appendMessage,
+  getConversation,
+  getMemoryState,
+  getMessagesToSummarize,
+  saveConversationSummary,
+  MEMORY_SUMMARY_TRIGGER,
+} from './models/chatModel.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
 const app = express()
 const PORT = process.env.PORT || 3000
+
+// ===== 滑动摘要维护 =====
+// 同一会话同一时刻只允许一个摘要任务在跑，避免并发重复压缩同一批消息
+const summarizingConversations = new Set()
+
+/**
+ * 异步维护滑动摘要：把滑出窗口、且未被摘要覆盖的旧消息压缩进 conversations.summary
+ * 设计要点：
+ *   ① 不阻塞用户响应——回答已结束才触发，用户无感知
+ *   ② 失败只记日志——记忆自动回退为「纯滑窗」，问答主流程不受影响
+ * @param {number} conversationId
+ */
+async function maintainSummary(conversationId) {
+  if (summarizingConversations.has(conversationId)) return
+  summarizingConversations.add(conversationId)
+  try {
+    // 重新读一次状态：本轮问答已落库，滑窗起点比请求开始时更靠后，必须取最新值
+    const state = await getMemoryState(conversationId)
+    if (state.pendingCount < MEMORY_SUMMARY_TRIGGER) return
+
+    const rows = await getMessagesToSummarize(conversationId, state.uptoId, state.windowStartId)
+    if (!rows.length) return
+
+    const summary = await summarizeHistory({ previousSummary: state.summary, messages: rows })
+    if (!summary) return
+
+    const lastId = Number(rows[rows.length - 1].id)
+    await saveConversationSummary(conversationId, summary, lastId)
+    console.log(`滑动摘要已更新：会话 ${conversationId}，压缩 ${rows.length} 条，覆盖至消息 ${lastId}`)
+  } finally {
+    summarizingConversations.delete(conversationId)
+  }
+}
 
 app.use(express.json())
 app.use(express.static(join(__dirname, '..', 'public')))
@@ -55,10 +96,16 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
       conversationId = created.id
     }
 
-    // 读取有限的持久化短期记忆：复用 MySQL 消息，不把完整会话无限塞进模型上下文
-    const recentMessages = await getRecentMessages(conversationId, 8)
-    const conversationContext = recentMessages
-      .map((message) => `${message.role === 'user' ? '用户' : '助手'}：${String(message.content).slice(0, 1800)}`)
+    // 读取记忆：滑动摘要（远期脉络）+ 滑窗（最近细节）拼接而成
+    // 摘要覆盖 (0, summary_upto_id]，滑窗取最近 8 条，两者靠 summary_upto_id 无缝衔接、不重复
+    const memory = await getMemoryState(conversationId)
+    const conversationContext = [
+      memory.summary ? `【历史摘要】${memory.summary}` : '',
+      ...memory.recentMessages.map(
+        (message) => `${message.role === 'user' ? '用户' : '助手'}：${String(message.content).slice(0, 1800)}`
+      ),
+    ]
+      .filter(Boolean)
       .join('\n')
 
     // 先落库用户问题
@@ -149,6 +196,11 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
     if (answer) {
       await appendMessage(conversationId, 'assistant', answer, sources, thinking)
     }
+
+    // 本轮问答已落库 → 异步维护滑动摘要（不阻塞响应；失败自动回退为纯滑窗）
+    maintainSummary(conversationId).catch((err) => {
+      console.error('滑动摘要维护失败（已忽略，记忆回退为滑窗）:', err.message)
+    })
   } catch (error) {
     console.error('API Error:', error)
     if (!res.headersSent) {

@@ -88,20 +88,86 @@ export async function getMessages(conversationId) {
   }))
 }
 
+// ===== 记忆配置（滑动摘要 + 滑窗 混合策略）=====
+// 滑窗保证「最近细节」精确，摘要保证「远期脉络」不丢——两者互补，缺一不可
+export const MEMORY_RECENT_LIMIT = 8      // 滑窗保留的最近消息条数
+export const MEMORY_SUMMARY_TRIGGER = 12  // 窗口外「未摘要」消息达到该条数时触发一次摘要
+
 /**
- * 查询最近的对话记忆，供下一轮 RAG 做指代消解。
- * 只读已完成的历史消息；调用方在写入本轮用户问题前调用，避免当前问题重复出现。
+ * 读取会话的记忆状态：摘要 + 滑窗消息 + 待摘要条数。
+ *
+ * 摘要与滑窗靠 summary_upto_id 无缝衔接：
+ *   摘要覆盖区间  (0, uptoId]
+ *   待摘要区间    (uptoId, windowStartId)  ← 已滑出窗口、但还没被压缩进摘要的部分
+ *   滑窗区间      [windowStartId, 最新]
+ * 三者不重叠，因此不会重复摘要同一批消息。
+ *
+ * @param {number} conversationId
+ * @param {number} recentLimit 滑窗条数
+ * @returns {Promise<{summary:string, uptoId:number, recentMessages:Array, windowStartId:number, pendingCount:number}>}
  */
-export async function getRecentMessages(conversationId, limit = 8) {
-  const safeLimit = Math.min(Math.max(Number(limit) || 8, 1), 12)
-  const rows = await query(
-    `SELECT role, content FROM messages
+export async function getMemoryState(conversationId, recentLimit = MEMORY_RECENT_LIMIT) {
+  const safeLimit = Math.min(Math.max(Number(recentLimit) || 8, 1), 20)
+
+  // 1. 会话上挂着的摘要与覆盖点
+  const convRows = await query(
+    'SELECT summary, summary_upto_id FROM conversations WHERE id = ?',
+    [conversationId]
+  )
+  const summary = convRows[0]?.summary || ''
+  const uptoId = Number(convRows[0]?.summary_upto_id || 0)
+
+  // 2. 滑窗：最近 N 条（倒序取再反转，保证拿到的是「最近」而非「最早」）
+  const recentRows = await query(
+    `SELECT id, role, content FROM messages
      WHERE conversation_id = ?
-     ORDER BY create_time DESC, id DESC
+     ORDER BY id DESC
      LIMIT ${safeLimit}`,
     [conversationId]
   )
-  return rows.reverse()
+  const recentMessages = recentRows.reverse()
+  const windowStartId = recentMessages.length ? Number(recentMessages[0].id) : 0
+
+  // 3. 待摘要条数：id 落在 (uptoId, windowStartId) 的消息数
+  let pendingCount = 0
+  if (windowStartId > uptoId) {
+    const cntRows = await query(
+      'SELECT COUNT(*) AS c FROM messages WHERE conversation_id = ? AND id > ? AND id < ?',
+      [conversationId, uptoId, windowStartId]
+    )
+    pendingCount = Number(cntRows[0]?.c || 0)
+  }
+
+  return { summary, uptoId, recentMessages, windowStartId, pendingCount }
+}
+
+/**
+ * 取待摘要区间的旧消息（时间正序），供摘要器压缩
+ * @param {number} conversationId
+ * @param {number} uptoId 摘要已覆盖到的消息 id（不含）
+ * @param {number} windowStartId 滑窗起点消息 id（不含）
+ */
+export async function getMessagesToSummarize(conversationId, uptoId, windowStartId) {
+  const rows = await query(
+    `SELECT id, role, content FROM messages
+     WHERE conversation_id = ? AND id > ? AND id < ?
+     ORDER BY id ASC`,
+    [conversationId, uptoId, windowStartId]
+  )
+  return rows
+}
+
+/**
+ * 写入新摘要，并把覆盖点推进到已摘要的最后一条消息 id
+ * @param {number} conversationId
+ * @param {string} summary 新摘要正文
+ * @param {number} uptoId 本次摘要覆盖到的消息 id
+ */
+export async function saveConversationSummary(conversationId, summary, uptoId) {
+  await query(
+    'UPDATE conversations SET summary = ?, summary_upto_id = ? WHERE id = ?',
+    [summary, uptoId, conversationId]
+  )
 }
 
 /**

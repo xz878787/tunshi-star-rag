@@ -3,6 +3,12 @@
 .env.local
 .env.*.local
 
+# ============ 本地数据卷（Docker 挂载，含 MySQL 数据）============
+volumes/
+
+# ============ 个人文件（简历等，勿公开）============
+output/
+
 # ============ 依赖包 ============
 node_modules/
 .pnpm-store/

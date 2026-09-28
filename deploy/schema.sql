@@ -19,10 +19,16 @@ CREATE TABLE IF NOT EXISTS conversations (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   user_id BIGINT NOT NULL,
   title VARCHAR(100),
+  summary TEXT NULL,                        -- 滑动摘要：滑出窗口的旧消息压缩结果（远期脉络）
+  summary_upto_id BIGINT NULL,              -- 摘要已覆盖到哪条消息 id（与滑窗衔接，避免重复摘要）
   create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
   update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_user (user_id, update_time)
 );
+
+-- 老库升级（本脚本只在数据卷为空时执行，已有库需手工执行一次）：
+--   ALTER TABLE conversations ADD COLUMN summary TEXT NULL;
+--   ALTER TABLE conversations ADD COLUMN summary_upto_id BIGINT NULL;
 
 -- 消息表：会话内的每条问答（与会话 1:N）
 CREATE TABLE IF NOT EXISTS messages (

@@ -578,6 +578,48 @@ const graph = new StateGraph(GraphState)
   .addEdge('rag_generate', END)
   .compile()
 
+// ===== 记忆摘要（滑动摘要策略）=====
+// 把滑出窗口的旧消息压缩成一段背景摘要，与滑窗互补：滑窗保「最近细节」精确，摘要保「远期脉络」不丢。
+// 摘要只作为对话背景使用，事实依据仍以检索片段为准（见生成 prompt 的约束）。
+const SUMMARY_MSG_MAX_CHARS = 800    // 单条消息进入摘要输入时的截断长度
+const SUMMARY_INPUT_MAX_CHARS = 6000 // 摘要输入总长上限（按字符估算，中文约 1 字符 ≈ 1 token）
+
+/**
+ * 把旧消息 + 已有摘要合并压缩成一段新摘要
+ * 用 planModel（temperature 0）：压缩是抽取式任务，需要输出稳定、可复现
+ * @param {Object} opts
+ * @param {string} [opts.previousSummary] 上一版摘要（需要一并合并，避免脉络断裂）
+ * @param {Array} [opts.messages] 待压缩的消息 [{ id, role, content }]
+ * @returns {Promise<string>} 新摘要正文；输入为空时原样返回旧摘要
+ */
+export async function summarizeHistory({ previousSummary = '', messages = [] }) {
+  if (!messages.length) return previousSummary
+
+  const transcript = messages
+    .map((m) => `${m.role === 'user' ? '用户' : '助手'}：${String(m.content).slice(0, SUMMARY_MSG_MAX_CHARS)}`)
+    .join('\n')
+    .slice(0, SUMMARY_INPUT_MAX_CHARS)
+
+  const res = await planModel.invoke(`你是对话记忆压缩器。把「已有摘要」和「新增对话」融合成一段简洁的第三人称背景摘要。
+
+要求：
+1. 融合重写，**不要简单拼接**——已有摘要中与新增内容重叠的部分要合并表述，不得出现重复语句。
+2. 只保留「聊过哪些人物、事件、结论」，用于后续对话理解指代、承接话题。
+3. 删除寒暄、重复与语气词；合并成连贯段落，不要逐条罗列。
+4. 不要添加原文没有的信息，不要推理、不要评价。
+5. 输出 300 字以内，只输出摘要正文，不要任何标题或前缀。
+
+已有摘要（已压缩的历史内容）：
+${previousSummary || '（无）'}
+
+新增对话（需要融入摘要）：
+${transcript}
+
+融合后的摘要：`)
+
+  return typeof res.content === 'string' ? res.content.trim() : ''
+}
+
 /**
  * 对外唯一入口：跑一次完整 agentic RAG
  * @param {Object} opts
