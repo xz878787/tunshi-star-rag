@@ -6,6 +6,9 @@ npm-debug.log
 .env
 .env.local
 
+# TLS 私钥只由 nginx 容器挂载，严禁复制进应用镜像
+deploy/certs
+
 # 版本控制
 .git
 .gitignore
