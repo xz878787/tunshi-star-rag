@@ -1,8 +1,6 @@
+# pnpm v11 设置文件（package.json 的 pnpm 字段已不再读取）
+# 批准带安装脚本的依赖执行原生构建：bcrypt 用于登录密码哈希，必须编译
 allowBuilds:
-  bcrypt: set this to true or false
-  protobufjs: set this to true or false
-  sharp: set this to true or false
-onlyBuiltDependencies:
-  - bcrypt
-  - protobufjs
-  - sharp
+  bcrypt: true
+  protobufjs: true
+  sharp: true

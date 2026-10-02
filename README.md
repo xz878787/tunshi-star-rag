@@ -381,6 +381,24 @@ docker compose ps
 docker compose logs -f app
 ```
 
+### LangSmith Tracing
+
+如需在 LangSmith 查看模型调用链，先在根目录 `.env` 配置以下变量；`LANGSMITH_PROJECT` 是 LangSmith 页面中显示的项目名，需与查看的项目完全一致。
+
+```env
+LANGSMITH_TRACING=true
+LANGSMITH_API_KEY=你的_LangSmith_Key
+LANGSMITH_PROJECT=tsxk-rag
+```
+
+`docker-compose.yml` 已将这三个变量传入 `app` 容器。修改后重建应用容器：
+
+```bash
+docker compose up -d --force-recreate app
+```
+
+启动容器本身不会生成 trace；必须通过应用实际发起一次问答，随后在 LangSmith 的 `Tracing` 中刷新对应项目。完整的验证与排障步骤见 [docs/07-LangSmith-Trace-排障手册.md](./docs/07-LangSmith-Trace-排障手册.md)。
+
 当前 `deploy/nginx.conf` 使用项目部署域名并将 HTTP 重定向到 HTTPS。部署到其他环境前，需要将其中的 `server_name` 改为自己的域名，并把 `fullchain.pem`、`private.key` 放入 `deploy/certs/`，然后访问 `https://<你的域名>`。
 
 部署注意事项：

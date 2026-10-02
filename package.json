@@ -37,6 +37,7 @@
     "express": "^5.2.1",
     "html-to-text": "^10.0.0",
     "jsonwebtoken": "^9.0.3",
+    "langsmith": "^0.10.5",
     "mysql2": "^3.23.3",
     "zod": "^4.6.2"
   }
