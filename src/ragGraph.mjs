@@ -4,6 +4,7 @@
 // 检索复用 @zilliz/milvus2-sdk-node 直连（与原 server.js 一致，避免 vectorstore 封装的索引参数不匹配问题）
 import { z } from 'zod'
 import { Annotation, END, START, StateGraph } from '@langchain/langgraph'
+import { RunnableLambda } from '@langchain/core/runnables'
 import { ChatOpenAI, OpenAIEmbeddings } from '@langchain/openai'
 import { HumanMessage, SystemMessage } from '@langchain/core/messages'
 import { MilvusClient, MetricType } from '@zilliz/milvus2-sdk-node'
@@ -570,7 +571,9 @@ URL: ${item.url}
     webContext ? `【联网补充资料】\n${webContext}` : '',
   ].filter(Boolean).join('\n\n====\n\n')
 
-  const prompt = `你是一个专业的《吞噬星空》小说助手。
+  const prompt = `你是一个专业的《吞噬星空》小说助手（名叫小志），由阿里云百炼 qwen-plus 模型驱动，检索基于 Milvus 向量库。
+若被问到"你是什么模型"，如实回答：qwen-plus（由 qwen-turbo 负责路由编排）。
+若被问到你的父亲、创造者是谁或类似问题，回答：肖志（肖宝）。
 基于下方上下文回答问题，用准确、详细的语言。
 ${contextBlock}
 
@@ -771,22 +774,25 @@ ${transcript}
   return typeof res.content === 'string' ? res.content.trim() : ''
 }
 
-/**
- * 对外唯一入口：跑一次完整 agentic RAG
- * @param {Object} opts
- * @param {string} opts.question 用户问题
- * @param {number} [opts.k] 每轮检索条数（默认 5）
- * @param {number} [opts.maxRetrievalCount] 检索轮数上限（默认 3）
- * @param {Object} [opts.sink] 流式回调 { onThink(text), onToken(text), onSources(sources) }，由 HTTP 层注入
- * @returns {Promise<Object>} 最终状态（含 generation / documents / strategy 等）
- */
-export async function runAgenticRAG({ question, k = TOP_K, maxRetrievalCount = 3, conversationContext = '', sink }) {
-  return graph.invoke(
+// ===== LangSmith 观测层包装 =====
+// 不包装时根 run = graph.invoke：Input 是全量 state，LangSmith 列表按字段名序展示首个字段，
+// conversationContext（历史转录）恒排在 question 前 → 列表页「问的问题」显示的是历史而非当前问题；
+// Output 是全量 final state，generation 也轮不到首位 → Input/Output 牛头不对马嘴。
+// 包装后（RunnableLambda 根 run）：
+//   Input  = 纯问题字符串（所见即所问）
+//   Output = { answer, ... }，answer 按字段名序排第一 → 列表页直接显示回答
+//   全量 state 降为子 run（LangSmith 里点进 agentic-rag 仍可钻取完整图执行过程）
+// conversationContext / k / maxRetrievalCount / sink 全部走 configurable 通道传参，不进根 run 的 Input 序列化；
+// RAG 图本身零改动，server.js 的返回契约也零改动。
+const tracedRAG = RunnableLambda.from(async (question, config) => {
+  const cfg = config?.configurable ?? {}
+  // func 运行在 runWithConfig（AsyncLocalStorage）上下文中，graph.invoke 的子 run 会隐式挂到根 run 下
+  const result = await graph.invoke(
     {
       question,
-      conversationContext,
-      k,
-      maxRetrievalCount,
+      conversationContext: cfg.conversationContext ?? '',
+      k: cfg.k ?? TOP_K,
+      maxRetrievalCount: cfg.maxRetrievalCount ?? 3,
       strategy: '',
       routeReason: '',
       subQuestions: [],
@@ -801,6 +807,31 @@ export async function runAgenticRAG({ question, k = TOP_K, maxRetrievalCount = 3
       lastTopScore: 0,
       generation: '',
     },
-    { configurable: { sink } } // sink 走 LangGraph configurable 通道注入节点（并发安全，不用全局变量）
+    { configurable: { sink: cfg.sink } } // sink 走 LangGraph configurable 通道注入节点（并发安全，不用全局变量）
   )
+  // 根 run 只暴露 answer（字段名序第一 → Output 列显示回答）+ server.js 所需的来源字段
+  return {
+    answer: result.generation ?? '',
+    documents: result.documents ?? [],
+    webDocs: result.webDocs ?? [],
+  }
+}).withConfig({ runName: 'agentic-rag' }) // 根 run 命名，LangSmith 列表一眼可辨
+
+/**
+ * 对外唯一入口：跑一次完整 agentic RAG
+ * @param {Object} opts
+ * @param {string} opts.question 用户问题
+ * @param {number} [opts.k] 每轮检索条数（默认 5）
+ * @param {number} [opts.maxRetrievalCount] 检索轮数上限（默认 3）
+ * @param {string} [opts.conversationContext] 对话记忆（滑动摘要 + 滑窗转录）
+ * @param {Object} [opts.sink] 流式回调 { onThink(text), onToken(text), onSources(sources) }，由 HTTP 层注入
+ * @returns {Promise<Object>} 最终状态（含 generation / documents / webDocs）
+ */
+export async function runAgenticRAG({ question, k = TOP_K, maxRetrievalCount = 3, conversationContext = '', sink }) {
+  // 参数全部经 configurable 传入包装层，根 run 的 Input 序列化只留纯问题字符串
+  const r = await tracedRAG.invoke(question, {
+    configurable: { sink, conversationContext, k, maxRetrievalCount },
+  })
+  // 映射回 server.js 原有契约（result.generation / documents / webDocs），调用方零改动
+  return { generation: r.answer, documents: r.documents, webDocs: r.webDocs }
 }
