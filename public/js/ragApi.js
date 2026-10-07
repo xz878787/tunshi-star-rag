@@ -3,7 +3,7 @@
 // marked 是 CDN 加载的全局变量，直接使用
 
 import { authHeaders, getToken } from './utils.js'
-import { chatState, addMessage, addTyping, removeTyping, createMessage, attachThinkPanel, appendThink, finalizeThink } from './chat.js'
+import { chatState, addMessage, addTyping, removeTyping, createMessage, attachThinkPanel, appendThink, finalizeThink, followScroll } from './chat.js'
 import { renderSources } from './sourceRender.js'
 import { handleUnauthorized, loadConversations, newConversation } from './conversation.js'
 
@@ -47,7 +47,8 @@ async function streamAnswer(res) {
         } else if (evt.type === 'done') {
           finalizeThink(refs)                 // 兜底：无正文的极端情况也收尾
         }
-        chatState.chatArea.scrollTop = chatState.chatArea.scrollHeight
+        // 跟随式滚动：用户在底部附近才自动跟随，上翻浏览历史时不打扰（followScroll 内部判断）
+        followScroll()
       }
     }
     // 刷新解码器末尾残留的字节

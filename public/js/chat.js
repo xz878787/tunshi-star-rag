@@ -46,6 +46,15 @@ export function addTyping() {
   chatState.chatArea.scrollTop = chatState.chatArea.scrollHeight
 }
 
+// 跟随式滚动：仅当用户停留在底部附近（距底 < 80px）时才自动吸底
+// 流式输出期间用户主动上翻查看历史 → 停止打扰；滚回底部后自动恢复跟随
+export function followScroll() {
+  const el = chatState.chatArea
+  if (!el) return
+  const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80
+  if (nearBottom) el.scrollTop = el.scrollHeight
+}
+
 export function removeTyping() {
   const indicator = document.querySelector('.typing-indicator')
   if (indicator) indicator.remove()
