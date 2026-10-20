@@ -9,13 +9,15 @@ import { handleUnauthorized, loadConversations, newConversation } from './conver
 
 // 流式解析后端推送：NDJSON 事件流，每行一个 JSON 事件
 // 事件顺序：meta（会话）→ think…（思考步骤）→ sources（检索来源）→ token…（正文）→ done（总用时）
-async function streamAnswer(res) {
+// onFirstEvent：首个事件到达时回调（sendQuestion 用它解除首事件看门狗）
+async function streamAnswer(res, onFirstEvent) {
   const reader = res.body?.getReader()
   if (!reader) return
   const decoder = new TextDecoder('utf-8') // 关键：把被切断的中文字节拼回完整字符
   let buffer = ''
   let refs = null        // { div, bubble, thinkBox, thinkBody, ... }
   let answerText = ''    // token 事件累积的正文
+  let firstSeen = false  // 首事件是否已到（meta 之前流挂起 = 服务异常，看门狗负责掐断）
   try {
     while (true) {
       const { done, value } = await reader.read()
@@ -30,6 +32,7 @@ async function streamAnswer(res) {
         if (!line) continue
         let evt
         try { evt = JSON.parse(line) } catch (e) { continue } // 容错：跳过坏行
+        if (!firstSeen) { firstSeen = true; onFirstEvent?.() }
 
         if (evt.type === 'meta') {
           // 记录会话 id，供后续追问挂在同一会话；创建消息容器 + 思考面板
@@ -54,8 +57,14 @@ async function streamAnswer(res) {
     // 刷新解码器末尾残留的字节
     buffer += decoder.decode()
   } catch (e) {
-    // 中断/断网：保留已生成的半截内容，避免整段丢失
-    if (refs?.bubble) refs.bubble.innerHTML = marked.parse(answerText || '（响应中断）')
+    // 中断/断网/超时：保留已生成的半截内容，避免整段丢失
+    if (refs?.bubble) {
+      const fallback = answerText || (e?.name === 'AbortError' ? '（服务器响应超时，15 秒无数据，可能正被限流）' : '（响应中断）')
+      refs.bubble.innerHTML = marked.parse(fallback)
+    } else if (e?.name === 'AbortError') {
+      // 连 meta 都没到就被掐断：在消息区给出明确提示（不再静默转圈）
+      addMessage('assistant', '服务器 15 秒无响应（可能正被限流或网络异常），请稍后重试。')
+    }
     finalizeThink(refs)
   }
 }
@@ -79,19 +88,22 @@ export async function sendQuestion() {
   addMessage('user', question)
   addTyping()
 
+  // 首事件看门狗：15 秒内连 meta 都没到 → 主动掐断请求并给出明确提示
+  // （防「永远正在思考」：限流/网关异常/流挂起时不再静默，超时原因写进消息区）
+  const controller = new AbortController()
+  const firstEventTimer = setTimeout(() => controller.abort(), 15000)
+
   try {
     const res = await fetch('/api/chat', {
       method: 'POST',
       headers: authHeaders(),
       body: JSON.stringify({ question, conversationId: chatState.currentConversationId }),
+      signal: controller.signal,
     })
     if (res.status === 401) {
       // token 失效，踢回登录（统一处理）
       removeTyping()
       handleUnauthorized()
-      chatState.loading = false
-      chatState.sendBtn.disabled = false
-      chatState.input.focus()
       return
     }
 
@@ -105,16 +117,21 @@ export async function sendQuestion() {
       addMessage('assistant', data.answer || data.error || '服务异常，请稍后重试', data.sources)
     } else {
       // 正常：先解析 meta 行拿 conversationId + sources，再流式渲染正文
-      await streamAnswer(res)
+      // 首事件到达即解除看门狗（LLM 长回答的思考阶段可能较久，不设全程超时）
+      await streamAnswer(res, () => clearTimeout(firstEventTimer))
     }
     // 刷新侧边栏（可能是新会话）
     loadConversations()
   } catch (e) {
     removeTyping()
-    addMessage('assistant', '网络错误，请检查服务器是否运行。')
+    const msg = e?.name === 'AbortError'
+      ? '服务器 15 秒无响应（可能正被限流或网络异常），请稍后重试。'
+      : '网络错误，请检查服务器是否运行。'
+    addMessage('assistant', msg)
+  } finally {
+    clearTimeout(firstEventTimer)
+    chatState.loading = false
+    chatState.sendBtn.disabled = false
+    chatState.input.focus()
   }
-
-  chatState.loading = false
-  chatState.sendBtn.disabled = false
-  chatState.input.focus()
 }

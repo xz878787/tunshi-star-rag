@@ -5,7 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>吞噬星空 RAG 助手小志</title>
   <link rel="icon" type="image/jpeg" href="/favicon.jpg">
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <!-- marked 本地化：曾走 jsdelivr CDN，国内网络对 jsdelivr 频繁连接重置（ERR_CONNECTION_RESET）
+       导致 marked 未定义、AI 回复渲染静默崩溃且强刷无法恢复——改为随站点分发，彻底摆脱外部 CDN -->
+  <script src="./vendor/marked.min.js"></script>
   <style>
     * {
       margin: 0;
